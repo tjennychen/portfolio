@@ -408,6 +408,17 @@
     .action-link.primary:hover { background: var(--fg); border-color: var(--fg); }
     .coda-meta { text-align: right; }
     .coda-meta-text { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: rgba(12,10,7,0.2); line-height: 2.2; }
+
+    /* BACK LINK */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--fg-dim); text-decoration: none;
+      margin: 24px 0 0 clamp(32px,5vw,80px); position: relative; z-index: 2;
+      opacity: 0; transition: opacity 600ms 900ms var(--ease-out-expo), color 100ms;
+    }
+    .back-link.show { opacity: 1; }
+    .back-link:hover { color: var(--teal); }
   </style>
 </head>
 <body>
@@ -415,6 +426,8 @@
   <div class="cursor" id="cursor"></div>
   <div class="grid-lines"></div>
   <div id="preloader"><div class="pre-chars" id="preChars"></div></div>
+
+  <a href="../index.html" class="back-link" id="backLink">&#8592; All projects</a>
 
   <!-- HERO -->
   <section id="hero">
@@ -841,6 +854,7 @@
     });
 
     function initHero() {
+      document.getElementById('backLink').classList.add('show');
       document.getElementById('heroKicker').classList.add('show');
       ['line1','line2','line3'].forEach((id, i) => { setTimeout(() => document.getElementById(id).classList.add('show'), i * 90); });
       setTimeout(() => document.getElementById('heroByline').classList.add('show'), 380);

@@ -797,6 +797,17 @@
       color: var(--fg-dim);
       line-height: 1.6;
     }
+
+    /* BACK LINK */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--fg-dim); text-decoration: none;
+      margin: 24px 0 0 clamp(32px,5vw,80px); position: relative; z-index: 2;
+      opacity: 0; transition: opacity 600ms 900ms var(--ease-out-expo), color 100ms;
+    }
+    .back-link.visible { opacity: 1; }
+    .back-link:hover { color: var(--acid); }
   </style>
 </head>
 <body>
@@ -811,6 +822,8 @@
   <div id="preloader">
     <div class="preloader-text" id="preloaderText"></div>
   </div>
+
+  <a href="../index.html" class="back-link" id="backLink">&#8592; All projects</a>
 
   <!-- HERO -->
   <section id="hero">
@@ -1247,6 +1260,7 @@
 
     // === HERO INIT ===
     function initHero() {
+      document.getElementById('backLink').classList.add('visible');
       document.getElementById('heroEyebrow').classList.add('visible');
       document.querySelectorAll('.hero-headline .word-inner').forEach((el, i) => {
         setTimeout(() => el.classList.add('visible'), i * 80);
