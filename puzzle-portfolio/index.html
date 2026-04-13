@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Puzzle CRM — Jenny Chen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital@1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f2ed;
+      --fg: #0c0b10;
+      --fg-dim: rgba(12,11,16,0.45);
+      --fg-ghost: rgba(12,11,16,0.1);
+      --acid: #2a00ff;
+      --acid-dim: rgba(42,0,255,0.08);
+      --hot: #ff3c1f;
+      --bruise: #7b5fff;
+      --mono: 'Space Mono', monospace;
+      --sans: 'Space Grotesk', sans-serif;
+      --serif: 'Playfair Display', serif;
+      --body: 'Inter', sans-serif;
+      --dur-snap: 120ms;
+      --dur-normal: 320ms;
+      --dur-slow: 640ms;
+      --dur-drift: 1200ms;
+      --ease-out-expo: cubic-bezier(0.16,1,0.3,1);
+      --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* CURSOR */
+    .cursor {
+      position: fixed;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--acid);
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 80ms ease, width 200ms ease, height 200ms ease;
+      transform: translate(-50%,-50%);
+    }
+    .cursor.expanded { width: 40px; height: 40px; opacity: 0.25; }
+
+    /* NOISE OVERLAY */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.018;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* GRID LINES */
+    .grid-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(12,11,16,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(12,11,16,0.04) 1px, transparent 1px);
+      background-size: 80px 80px;
+    }
+
+    /* PRELOADER */
+    #preloader {
+      position: fixed;
+      inset: 0;
+      background: #f5f2ed;
+      z-index: 9000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 600ms var(--ease-out-expo), visibility 600ms;
+    }
+    #preloader.done { opacity: 0; visibility: hidden; }
+    .preloader-text {
+      font-family: var(--mono);
+      font-size: clamp(11px, 1.2vw, 14px);
+      letter-spacing: 0.2em;
+      color: var(--fg-dim);
+      overflow: hidden;
+    }
+    .preloader-text span {
+      display: inline-block;
+      animation: preCharIn 40ms forwards;
+      opacity: 0;
+    }
+
+    /* SECTIONS */
+    section { position: relative; z-index: 1; }
+
+    /* ===== HERO ===== */
+    #hero {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      padding: clamp(32px,5vw,80px);
+      padding-top: clamp(80px,10vh,140px);
+      overflow: hidden;
+    }
+
+    .hero-main {}
+
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: clamp(10px,1.1vw,13px);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--acid);
+      margin-bottom: clamp(24px,3vw,48px);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .hero-eyebrow.visible { opacity: 1; transform: none; }
+
+    .hero-headline {
+      font-family: var(--sans);
+      font-size: clamp(64px,10.5vw,168px);
+      font-weight: 700;
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      margin-bottom: clamp(32px,4vw,64px);
+    }
+
+    .hero-headline .word {
+      display: inline-block;
+      overflow: hidden;
+      margin-right: 0.18em;
+    }
+    .hero-headline .word-inner {
+      display: inline-block;
+      transform: translateY(110%);
+      transition: transform var(--dur-slow) var(--ease-out-expo);
+    }
+    .hero-headline .word-inner.visible { transform: translateY(0); }
+
+    .hero-headline .accent { color: var(--acid); }
+
+    .hero-sub {
+      max-width: 640px;
+      font-size: clamp(15px,1.6vw,19px);
+      font-weight: 300;
+      color: var(--fg-dim);
+      line-height: 1.6;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 700ms 400ms var(--ease-out-expo), transform 700ms 400ms var(--ease-out-expo);
+    }
+    .hero-sub.visible { opacity: 1; transform: none; }
+    .hero-sub em { color: var(--fg); font-style: normal; font-weight: 500; }
+
+    .hero-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding-top: 40px;
+      border-top: 1px solid var(--fg-ghost);
+      opacity: 0;
+      transition: opacity 800ms 600ms var(--ease-out-expo);
+    }
+    .hero-footer.visible { opacity: 1; }
+
+    .hero-scroll-hint {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .scroll-line {
+      width: 40px; height: 1px;
+      background: var(--fg-dim);
+      transform-origin: left;
+      animation: scrollLine 2s 1.5s var(--ease-out-expo) infinite;
+    }
+    @keyframes scrollLine {
+      0%,100% { transform: scaleX(1); opacity: 0.4; }
+      50% { transform: scaleX(1.8); opacity: 1; }
+    }
+
+    .hero-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border: 1px solid var(--fg-ghost);
+      color: var(--fg-dim);
+    }
+
+    /* ===== MANIFESTO ===== */
+    #manifesto {
+      padding: clamp(80px,12vh,160px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+    }
+
+    .manifesto-text {
+      font-family: var(--sans);
+      font-size: clamp(28px,4.5vw,72px);
+      font-weight: 500;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      max-width: 1100px;
+    }
+    .manifesto-text .reveal-word {
+      display: inline-block;
+      overflow: hidden;
+      margin-right: 0.22em;
+      vertical-align: bottom;
+    }
+    .manifesto-text .reveal-word span {
+      display: inline-block;
+      transform: translateY(105%);
+      transition: transform 600ms var(--ease-out-expo);
+    }
+    .manifesto-text .reveal-word span.visible { transform: translateY(0); }
+    .manifesto-text .dim { color: var(--fg-dim); }
+    .manifesto-text .ital { font-family: var(--serif); color: var(--acid); }
+
+    /* ===== CHANNELS ===== */
+    #channels {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 48px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .section-label::before {
+      content: '';
+      width: 32px; height: 1px;
+      background: var(--acid);
+    }
+
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 1px;
+      background: var(--fg-ghost);
+    }
+
+    .channel-card {
+      background: var(--bg);
+      padding: clamp(24px,3vw,48px);
+      transition: background var(--dur-snap);
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 120ms;
+    }
+    .channel-card.visible { opacity: 1; transform: none; }
+    .channel-card:hover { background: rgba(42,0,255,0.04); }
+
+    .channel-card:nth-child(1) { grid-column: span 5; }
+    .channel-card:nth-child(2) { grid-column: span 4; }
+    .channel-card:nth-child(3) { grid-column: span 3; }
+    .channel-card:nth-child(4) { grid-column: span 7; }
+    .channel-card:nth-child(5) { grid-column: span 5; }
+
+    @media (max-width: 900px) {
+      .channel-card { grid-column: span 12 !important; }
+    }
+
+    .channel-icon {
+      font-size: 24px;
+      margin-bottom: 20px;
+      display: block;
+    }
+    .channel-name {
+      font-family: var(--sans);
+      font-size: clamp(18px,2vw,26px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+    .channel-count {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--acid);
+      letter-spacing: 0.15em;
+      margin-bottom: 16px;
+    }
+    .channel-desc {
+      font-size: clamp(13px,1.2vw,15px);
+      color: var(--fg-dim);
+      line-height: 1.6;
+    }
+
+    /* ===== PIPELINE ===== */
+    #pipeline {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+      overflow: hidden;
+    }
+
+    .pipeline-header {
+      margin-bottom: clamp(48px,6vw,96px);
+    }
+    .pipeline-title {
+      font-family: var(--sans);
+      font-size: clamp(36px,5vw,80px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .pipeline-sub {
+      font-size: 15px;
+      color: var(--fg-dim);
+      max-width: 480px;
+    }
+
+    .pipeline-steps {
+      display: flex;
+      gap: 0;
+      position: relative;
+      overflow-x: auto;
+      padding-bottom: 16px;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      min-width: 180px;
+      position: relative;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .pipeline-step.visible { opacity: 1; transform: none; }
+
+    .step-connector {
+      position: absolute;
+      top: 28px;
+      left: 50%;
+      right: -50%;
+      height: 1px;
+      background: var(--fg-ghost);
+      overflow: hidden;
+    }
+    .step-connector::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--acid);
+      transform: translateX(-100%);
+      transition: transform 800ms var(--ease-out-expo);
+    }
+    .step-connector.active::after { transform: translateX(0); }
+    .pipeline-step:last-child .step-connector { display: none; }
+
+    .step-dot {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 1px solid var(--fg-ghost);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--fg-dim);
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+      background: var(--bg);
+      transition: border-color var(--dur-normal), color var(--dur-normal), box-shadow var(--dur-normal);
+    }
+    .pipeline-step.active .step-dot {
+      border-color: var(--acid);
+      color: var(--acid);
+      box-shadow: 0 0 20px var(--acid-dim);
+    }
+
+    .step-label {
+      font-family: var(--sans);
+      font-size: clamp(14px,1.4vw,17px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+    .step-detail {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: var(--fg-dim);
+      line-height: 1.7;
+    }
+    .step-detail li { list-style: none; }
+    .step-detail li::before { content: '— '; color: var(--acid-dim); }
+
+    /* ===== STATS ===== */
+    #stats {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+      background: linear-gradient(180deg, transparent, rgba(42,0,255,0.025) 50%, transparent);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--fg-ghost);
+    }
+
+    .stat-item {
+      background: var(--bg);
+      padding: clamp(32px,4vw,56px) clamp(24px,3vw,40px);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .stat-item.visible { opacity: 1; transform: none; }
+
+    .stat-number {
+      font-family: var(--sans);
+      font-size: clamp(40px,5.5vw,88px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--acid);
+      margin-bottom: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-suffix {
+      font-size: 0.45em;
+      letter-spacing: 0;
+      color: var(--fg-dim);
+      vertical-align: super;
+    }
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      line-height: 1.5;
+    }
+
+    /* ===== TECH STACK ===== */
+    #tech {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+    }
+
+    .tech-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: clamp(48px,6vw,96px);
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+    .tech-title {
+      font-family: var(--sans);
+      font-size: clamp(36px,5vw,72px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .tech-note {
+      font-size: 14px;
+      color: var(--fg-dim);
+      max-width: 320px;
+      padding-top: 8px;
+    }
+
+    .tech-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 40px;
+    }
+
+    .tech-group-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+
+    .tech-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tech-pill {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 6px 12px;
+      border: 1px solid var(--fg-ghost);
+      color: var(--fg);
+      letter-spacing: 0.05em;
+      opacity: 0;
+      transform: translateY(10px) scale(0.96);
+      transition: opacity 400ms var(--ease-out-expo), transform 400ms var(--ease-out-expo),
+                  border-color var(--dur-snap), background var(--dur-snap);
+    }
+    .tech-pill.visible { opacity: 1; transform: none; }
+    .tech-pill:hover { border-color: var(--acid); background: var(--acid-dim); }
+
+    /* ===== CODA ===== */
+    #coda {
+      padding: clamp(80px,12vh,160px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 40px;
+    }
+
+    @media (max-width: 700px) {
+      #coda { grid-template-columns: 1fr; }
+    }
+
+    .coda-main {
+      max-width: 720px;
+    }
+    .coda-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 24px;
+    }
+    .coda-name {
+      font-family: var(--sans);
+      font-size: clamp(40px,6vw,96px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      margin-bottom: 24px;
+    }
+    .coda-bio {
+      font-size: 16px;
+      color: var(--fg-dim);
+      line-height: 1.6;
+      max-width: 480px;
+    }
+    .coda-bio strong { color: var(--fg); font-weight: 500; }
+
+    .coda-links {
+      display: flex;
+      gap: 16px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+    .coda-link {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--fg);
+      text-decoration: none;
+      padding: 12px 24px;
+      border: 1px solid var(--fg-ghost);
+      transition: border-color var(--dur-snap), background var(--dur-snap), color var(--dur-snap);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .coda-link:hover { border-color: var(--acid); background: var(--acid-dim); }
+    .coda-link.primary {
+      background: var(--acid);
+      color: #f5f2ed;
+      border-color: var(--acid);
+      font-weight: 700;
+    }
+    .coda-link.primary:hover { background: #0c0b10; border-color: #0c0b10; }
+
+    .coda-aside {
+      text-align: right;
+    }
+    .coda-aside-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--fg-dim);
+      line-height: 2;
+    }
+
+    /* ===== TICKER ===== */
+    .ticker-wrap {
+      overflow: hidden;
+      border-top: 1px solid var(--fg-ghost);
+      border-bottom: 1px solid var(--fg-ghost);
+      padding: 16px 0;
+      background: rgba(42,0,255,0.05);
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: ticker 28s linear infinite;
+    }
+    .ticker-item {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--acid);
+      padding: 0 40px;
+      white-space: nowrap;
+    }
+    .ticker-item::before { content: '◆ '; }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes preCharIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .fade-up.visible { opacity: 1; transform: none; }
+
+    /* Glow pulse on acid elements */
+    @keyframes glowPulse {
+      0%,100% { text-shadow: 0 0 24px rgba(42,0,255,0.2); }
+      50% { text-shadow: 0 0 48px rgba(42,0,255,0.45), 0 0 96px rgba(42,0,255,0.1); }
+    }
+    .glow { animation: glowPulse 3s ease-in-out infinite; }
+
+    /* Floating decoration */
+    .hero-deco {
+      position: absolute;
+      top: clamp(60px,8vh,120px);
+      right: clamp(32px,5vw,80px);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--fg-ghost);
+      text-align: right;
+      line-height: 2;
+      pointer-events: none;
+    }
+
+    /* Horizontal rule with text */
+    .hr-label {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin: 0 clamp(32px,5vw,80px);
+      border: none;
+      border-top: 1px solid var(--fg-ghost);
+    }
+
+    /* ===== KOL SYSTEM ===== */
+    #kol {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-top: 1px solid var(--fg-ghost);
+    }
+
+    .kol-header {
+      margin-bottom: clamp(48px,6vw,96px);
+    }
+    .kol-title {
+      font-family: var(--sans);
+      font-size: clamp(36px,5vw,80px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .kol-title .accent { color: var(--acid); }
+    .kol-sub {
+      font-size: 15px;
+      color: var(--fg-dim);
+      max-width: 560px;
+    }
+
+    .kol-phases {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--fg-ghost);
+      margin-bottom: clamp(48px,6vw,80px);
+    }
+    @media (max-width: 700px) {
+      .kol-phases { grid-template-columns: 1fr; }
+    }
+
+    .kol-phase {
+      background: var(--bg);
+      padding: clamp(24px,3vw,40px);
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 120ms;
+    }
+    .kol-phase.visible { opacity: 1; transform: none; }
+    .kol-phase:hover { background: rgba(42,0,255,0.04); }
+
+    .kol-phase-num {
+      font-family: var(--mono);
+      font-size: clamp(28px,3vw,40px);
+      font-weight: 700;
+      color: var(--acid);
+      opacity: 0.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .kol-phase-name {
+      font-family: var(--sans);
+      font-size: clamp(16px,1.8vw,22px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+    .kol-phase-detail {
+      font-size: clamp(12px,1.1vw,14px);
+      color: var(--fg-dim);
+      line-height: 1.6;
+    }
+
+    /* KOL Intelligence */
+    .kol-intel {
+      border-top: 1px solid var(--fg-ghost);
+      padding-top: clamp(32px,4vw,56px);
+    }
+    .kol-intel-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 24px;
+    }
+    .kol-intel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+    }
+    @media (max-width: 700px) {
+      .kol-intel-grid { grid-template-columns: 1fr; gap: 24px; }
+    }
+
+    .kol-intel-item {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .kol-intel-item.visible { opacity: 1; transform: none; }
+
+    .kol-intel-title {
+      font-family: var(--sans);
+      font-size: clamp(14px,1.4vw,17px);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .kol-intel-desc {
+      font-size: clamp(12px,1.1vw,14px);
+      color: var(--fg-dim);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- CURSOR -->
+  <div class="cursor" id="cursor"></div>
+
+  <!-- GRID -->
+  <div class="grid-overlay"></div>
+
+  <!-- PRELOADER -->
+  <div id="preloader">
+    <div class="preloader-text" id="preloaderText"></div>
+  </div>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-deco">
+      PUZZLE CRM<br>
+      SAN FRANCISCO, CA<br>
+      BUILT 2025–2026
+    </div>
+
+    <div class="hero-main">
+      <div class="hero-eyebrow" id="heroEyebrow">AI Automation Portfolio — Case Study 01</div>
+
+      <h1 class="hero-headline">
+        <span class="word"><span class="word-inner">I</span></span>
+        <span class="word"><span class="word-inner">built</span></span>
+        <span class="word"><span class="word-inner">a</span></span>
+        <span class="word"><span class="word-inner accent glow">5-channel</span></span><br>
+        <span class="word"><span class="word-inner">outreach</span></span>
+        <span class="word"><span class="word-inner">system</span></span>
+      </h1>
+
+      <p class="hero-sub" id="heroSub">
+        Built for <em>a health &amp; wellness practice</em> in SF. Two systems: a referral
+        pipeline across 5 channels and a reusable <em>KOL outreach playbook</em> with
+        AI-scored influencer matching. Templatized for any brand. <em>Fully automated.</em>
+      </p>
+    </div>
+
+    <div class="hero-footer" id="heroFooter">
+      <div class="hero-scroll-hint">
+        <div class="scroll-line"></div>
+        Scroll to explore
+      </div>
+      <div class="hero-tags">
+        <span class="tag">Python</span>
+        <span class="tag">Node.js</span>
+        <span class="tag">Playwright</span>
+        <span class="tag">Google Places API</span>
+        <span class="tag">Instagram API</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span class="ticker-item">Lead Discovery</span>
+      <span class="ticker-item">Lead Scoring</span>
+      <span class="ticker-item">Email Automation</span>
+      <span class="ticker-item">SMS Outreach</span>
+      <span class="ticker-item">Instagram DM</span>
+      <span class="ticker-item">Web Form Fill</span>
+      <span class="ticker-item">Reply Detection</span>
+      <span class="ticker-item">KOL Playbook</span>
+      <span class="ticker-item">AI Brand-Fit Scoring</span>
+      <span class="ticker-item">Life Signal Detection</span>
+      <span class="ticker-item">CRM Database</span>
+      <span class="ticker-item">Campaign Tracking</span>
+      <span class="ticker-item">Lead Discovery</span>
+      <span class="ticker-item">Lead Scoring</span>
+      <span class="ticker-item">Email Automation</span>
+      <span class="ticker-item">SMS Outreach</span>
+      <span class="ticker-item">Instagram DM</span>
+      <span class="ticker-item">Web Form Fill</span>
+      <span class="ticker-item">Reply Detection</span>
+      <span class="ticker-item">KOL Playbook</span>
+      <span class="ticker-item">AI Brand-Fit Scoring</span>
+      <span class="ticker-item">Life Signal Detection</span>
+      <span class="ticker-item">CRM Database</span>
+      <span class="ticker-item">Campaign Tracking</span>
+    </div>
+  </div>
+
+  <!-- MANIFESTO -->
+  <section id="manifesto">
+    <p class="manifesto-text" id="manifestoText">
+      <span class="reveal-word"><span>Most</span></span>
+      <span class="reveal-word"><span>people</span></span>
+      <span class="reveal-word dim"><span>talk</span></span>
+      <span class="reveal-word dim"><span>about</span></span>
+      <span class="reveal-word dim"><span>using</span></span>
+      <span class="reveal-word"><span>AI.</span></span>
+      <span class="reveal-word"><span>I</span></span>
+      <span class="reveal-word"><span>shipped</span></span>
+      <span class="reveal-word"><span>a</span></span>
+      <span class="reveal-word ital"><span>system</span></span>
+      <span class="reveal-word dim"><span>that</span></span>
+      <span class="reveal-word dim"><span>actually</span></span>
+      <span class="reveal-word"><span>runs.</span></span>
+    </p>
+  </section>
+
+  <!-- CHANNELS -->
+  <section id="channels">
+    <div class="section-label">Outreach Channels</div>
+    <div class="channels-grid">
+
+      <div class="channel-card">
+        <span class="channel-icon">📧</span>
+        <div class="channel-name">Email Outreach</div>
+        <div class="channel-count">Gmail IMAP + SMTP</div>
+        <p class="channel-desc">AI-personalized cold emails with daily reply detection. Auto-classifies responses as interested, not interested, or neutral. Updates CRM score in real time.</p>
+      </div>
+
+      <div class="channel-card">
+        <span class="channel-icon">💬</span>
+        <div class="channel-name">SMS / iMessage</div>
+        <div class="channel-count">Twilio + iMessage</div>
+        <p class="channel-desc">Text outreach for event mixer campaigns. Detects STOP / unsubscribe replies and permanently flags contacts so they're never messaged again.</p>
+      </div>
+
+      <div class="channel-card">
+        <span class="channel-icon">📸</span>
+        <div class="channel-name">Instagram DMs</div>
+        <div class="channel-count">Playwright CDP — 26 sent</div>
+        <p class="channel-desc">Rate-limited to 10/day. Pre-engagement (like + comment) before DM. Human-like delays. Anti-ban compliance built in.</p>
+      </div>
+
+      <div class="channel-card">
+        <span class="channel-icon">🌐</span>
+        <div class="channel-name">Web Form Fill</div>
+        <div class="channel-count">Playwright automation — 103 targets</div>
+        <p class="channel-desc">Browser automation fills contact forms on clinic websites with 90-second+ human-like delays between submissions. Screenshots saved for verification. Fallback to email if form fails.</p>
+      </div>
+
+      <div class="channel-card">
+        <span class="channel-icon">📍</span>
+        <div class="channel-name">Lead Discovery</div>
+        <div class="channel-count">Google Places + NPPES + Instagram</div>
+        <p class="channel-desc">Three discovery pipelines: neighborhood search across 8 professions × 6 SF areas, NPPES provider registry, and Instagram social graph crawl from @puzzletcm.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section id="pipeline">
+    <div class="pipeline-header fade-up">
+      <div class="section-label">Referral Discovery</div>
+      <h2 class="pipeline-title">The Pipeline</h2>
+      <p class="pipeline-sub">Every contact flows through five automated stages before a human ever sees a reply.</p>
+    </div>
+
+    <div class="pipeline-steps" id="pipelineSteps">
+
+      <div class="pipeline-step">
+        <div class="step-connector"></div>
+        <div class="step-dot">01</div>
+        <div class="step-label">Discover</div>
+        <ul class="step-detail">
+          <li>Google Places API</li>
+          <li>NPPES registry</li>
+          <li>Instagram graph</li>
+          <li>Apify scraping</li>
+        </ul>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-connector"></div>
+        <div class="step-dot">02</div>
+        <div class="step-label">Enrich</div>
+        <ul class="step-detail">
+          <li>Website email extraction</li>
+          <li>Fuzzy deduplication</li>
+          <li>Credential detection</li>
+          <li>Distance calculation</li>
+        </ul>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-connector"></div>
+        <div class="step-dot">03</div>
+        <div class="step-label">Score</div>
+        <ul class="step-detail">
+          <li>Tier 1: warm (social)</li>
+          <li>Tier 2: nearby (geo)</li>
+          <li>Tier 3: cold (broad)</li>
+          <li>Dynamic scoring</li>
+        </ul>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-connector"></div>
+        <div class="step-dot">04</div>
+        <div class="step-label">Outreach</div>
+        <ul class="step-detail">
+          <li>Email + SMS + DM</li>
+          <li>Web form fill</li>
+          <li>Rate limiting</li>
+          <li>Personalization</li>
+        </ul>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-dot">05</div>
+        <div class="step-label">Track</div>
+        <ul class="step-detail">
+          <li>Reply detection</li>
+          <li>Score updates</li>
+          <li>Unsubscribe guard</li>
+          <li>Activity log</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- KOL SYSTEM -->
+  <section id="kol">
+    <div class="kol-header">
+      <div class="section-label">KOL Outreach Playbook</div>
+      <h2 class="kol-title fade-up">Built once.<br>Runs for <span class="accent">any brand.</span></h2>
+      <p class="kol-sub fade-up">A 6-phase influencer outreach methodology. Templatized campaigns, AI-scored brand fit, automated daily sends. Designed as a reusable playbook, not a one-off script.</p>
+    </div>
+
+    <div class="kol-phases">
+      <div class="kol-phase">
+        <div class="kol-phase-num">01</div>
+        <div class="kol-phase-name">Define</div>
+        <div class="kol-phase-detail">Target audience, competitor accounts, campaign angle. Each campaign targets a specific persona with a specific reason to care.</div>
+      </div>
+      <div class="kol-phase">
+        <div class="kol-phase-num">02</div>
+        <div class="kol-phase-name">Collect</div>
+        <div class="kol-phase-detail">Modash API pulls collaborator data from competitor accounts. Zero IG visits needed at this stage.</div>
+      </div>
+      <div class="kol-phase">
+        <div class="kol-phase-num">03</div>
+        <div class="kol-phase-name">Score</div>
+        <div class="kol-phase-detail">AI brand-fit scoring on a 1-5 scale. Life signal detection from bios. Human review on borderline 3s only.</div>
+      </div>
+      <div class="kol-phase">
+        <div class="kol-phase-num">04</div>
+        <div class="kol-phase-name">Template</div>
+        <div class="kol-phase-detail">DM + email templates. Show 2-3 examples for approval, then batch generate all. Never review every message individually.</div>
+      </div>
+      <div class="kol-phase">
+        <div class="kol-phase-num">05</div>
+        <div class="kol-phase-name">Send</div>
+        <div class="kol-phase-detail">Rate-limited daily sends via LaunchAgent automation. One IG visit per profile. Bio capture + send in a single pass.</div>
+      </div>
+      <div class="kol-phase">
+        <div class="kol-phase-num">06</div>
+        <div class="kol-phase-name">Track</div>
+        <div class="kol-phase-detail">CRM scoring: replies, appointments, conversions, declines. Score system prevents re-contacting cold or declined leads.</div>
+      </div>
+    </div>
+
+    <div class="kol-intel">
+      <div class="kol-intel-label">How it thinks</div>
+      <div class="kol-intel-grid">
+        <div class="kol-intel-item">
+          <div class="kol-intel-title">Life Signals</div>
+          <div class="kol-intel-desc">Detects parents, athletes, couples, event organizers from bio text. Adjusts the pitch angle automatically per signal.</div>
+        </div>
+        <div class="kol-intel-item">
+          <div class="kol-intel-title">Brand Fit</div>
+          <div class="kol-intel-desc">AI scores each influencer 1-5 on lifestyle match. Score 3 gets flagged for human review. Scores 1-2 auto-cut.</div>
+        </div>
+        <div class="kol-intel-item">
+          <div class="kol-intel-title">Platform Safety</div>
+          <div class="kol-intel-desc">All data collection via Modash APIs. IG is only touched for sending. Rate-limited, anti-ban compliant, screenshot-verified.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="section-label" style="margin-bottom:48px">By the numbers</div>
+    <div class="stats-grid">
+
+      <div class="stat-item">
+        <div class="stat-number" data-target="5500" data-suffix="+">0</div>
+        <div class="stat-label">NPPES leads<br>in discovery pipeline</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" data-target="6">0</div>
+        <div class="stat-label">playbook phases<br>per KOL campaign</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" data-target="5">0</div>
+        <div class="stat-label">KOL campaigns<br>designed and shipped</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" data-target="941">0</div>
+        <div class="stat-label">influencer profiles<br>pulled from Modash</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" data-target="48">0</div>
+        <div class="stat-label">search combinations<br>8 professions × 6 areas</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" data-target="5">0</div>
+        <div class="stat-label">outreach channels<br>in one system</div>
+      </div>
+
+
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section id="tech">
+    <div class="tech-header">
+      <h2 class="tech-title fade-up">Tech<br>Stack</h2>
+      <p class="tech-note fade-up">Python for data pipelines. Node.js for browser automation. SQLite keeps it all honest. No fancy infrastructure.</p>
+    </div>
+
+    <div class="tech-groups">
+
+      <div>
+        <div class="tech-group-label">Core Language</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Python 3</span>
+          <span class="tech-pill">Node.js ESM</span>
+          <span class="tech-pill">SQLite 3</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="tech-group-label">Browser Automation</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Playwright</span>
+          <span class="tech-pill">Chrome CDP</span>
+          <span class="tech-pill">Apify</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="tech-group-label">APIs + Data</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Google Places API</span>
+          <span class="tech-pill">Google Maps</span>
+          <span class="tech-pill">NPPES Registry</span>
+          <span class="tech-pill">Modash</span>
+          <span class="tech-pill">Gmail IMAP</span>
+          <span class="tech-pill">Twilio</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="tech-group-label">Discovery + Scraping</div>
+        <div class="tech-pills">
+          <span class="tech-pill">instagrapi</span>
+          <span class="tech-pill">BeautifulSoup4</span>
+          <span class="tech-pill">httpx</span>
+          <span class="tech-pill">geopy</span>
+          <span class="tech-pill">thefuzz</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="tech-group-label">Compliance + Safety</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Rate limiting</span>
+          <span class="tech-pill">Unsubscribe detection</span>
+          <span class="tech-pill">Dry-run mode</span>
+          <span class="tech-pill">Screenshot verify</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="tech-group-label">Testing</div>
+        <div class="tech-pills">
+          <span class="tech-pill">pytest</span>
+          <span class="tech-pill">pytest-mock</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CODA -->
+  <section id="coda">
+    <div class="coda-main">
+      <div class="coda-label">Built by</div>
+      <h2 class="coda-name fade-up">Jenny<br>Chen</h2>
+      <p class="coda-bio">
+        <strong>GTM operator turned builder.</strong> I've taken companies from
+        0 to $5M ARR. Now I build the systems I always wished existed. This is one of them.
+        Currently targeting GTM + Partnerships roles at Series A-B AI companies.
+      </p>
+      <div class="coda-links">
+        <a href="../index.html" class="coda-link primary">&#8592; All Projects</a>
+        <a href="https://linkedin.com/in/tjennychen" class="coda-link" target="_blank">LinkedIn</a>
+        <a href="mailto:tjennychen@gmail.com" class="coda-link" target="_blank">Get in touch</a>
+      </div>
+    </div>
+
+    <div class="coda-aside">
+      <div class="coda-aside-text">
+        Puzzle CRM<br>
+        v1.3.4<br>
+        San Francisco<br>
+        2025–2026
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // === CURSOR ===
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    });
+    document.querySelectorAll('a, button, .channel-card, .tech-pill, .kol-phase').forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('expanded'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('expanded'));
+    });
+
+    // === PRELOADER ===
+    const preloaderEl = document.getElementById('preloaderText');
+    const preText = 'PUZZLE_CRM.init()';
+    preText.split('').forEach((ch, i) => {
+      const s = document.createElement('span');
+      s.textContent = ch === ' ' ? '\u00A0' : ch;
+      s.style.animationDelay = (i * 35) + 'ms';
+      preloaderEl.appendChild(s);
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('preloader').classList.add('done');
+        initHero();
+      }, preText.length * 35 + 300);
+    });
+
+    // === HERO INIT ===
+    function initHero() {
+      document.getElementById('heroEyebrow').classList.add('visible');
+      document.querySelectorAll('.hero-headline .word-inner').forEach((el, i) => {
+        setTimeout(() => el.classList.add('visible'), i * 80);
+      });
+      setTimeout(() => document.getElementById('heroSub').classList.add('visible'), 500);
+      setTimeout(() => document.getElementById('heroFooter').classList.add('visible'), 700);
+    }
+
+    // === INTERSECTION OBSERVER ===
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+
+        if (el.classList.contains('channel-card')) {
+          const cards = document.querySelectorAll('.channel-card');
+          cards.forEach((card, i) => {
+            setTimeout(() => card.classList.add('visible'), i * 90);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('stat-item')) {
+          el.classList.add('visible');
+          const numEl = el.querySelector('.stat-number');
+          const target = parseInt(numEl.dataset.target);
+          const suffix = numEl.dataset.suffix || '';
+          animateCounter(numEl, target, suffix);
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('pipeline-step')) {
+          const steps = document.querySelectorAll('.pipeline-step');
+          steps.forEach((step, i) => {
+            setTimeout(() => {
+              step.classList.add('visible');
+              setTimeout(() => {
+                step.classList.add('active');
+                const conn = step.querySelector('.step-connector');
+                if (conn) conn.classList.add('active');
+              }, 200);
+            }, i * 180);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('tech-pill')) {
+          const pills = document.querySelectorAll('.tech-pill');
+          pills.forEach((pill, i) => {
+            setTimeout(() => pill.classList.add('visible'), i * 40);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('reveal-word')) {
+          const words = document.querySelectorAll('#manifestoText .reveal-word span');
+          words.forEach((w, i) => {
+            setTimeout(() => w.classList.add('visible'), i * 60);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('kol-phase')) {
+          const phases = document.querySelectorAll('.kol-phase');
+          phases.forEach((phase, i) => {
+            setTimeout(() => phase.classList.add('visible'), i * 80);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('kol-intel-item')) {
+          const items = document.querySelectorAll('.kol-intel-item');
+          items.forEach((item, i) => {
+            setTimeout(() => item.classList.add('visible'), i * 120);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        el.classList.add('visible');
+      });
+    }, { threshold: 0.15 });
+
+    // Observe everything
+    document.querySelectorAll('.channel-card').forEach(el => io.observe(el));
+    document.querySelectorAll('.stat-item').forEach(el => io.observe(el));
+    document.querySelectorAll('.pipeline-step').forEach(el => io.observe(el));
+    document.querySelectorAll('.tech-pill').forEach(el => io.observe(el));
+    document.querySelectorAll('.kol-phase').forEach(el => io.observe(el));
+    document.querySelectorAll('.kol-intel-item').forEach(el => io.observe(el));
+    document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+    const firstWord = document.querySelector('#manifestoText .reveal-word');
+    if (firstWord) io.observe(firstWord);
+
+    // === COUNTER ANIMATION ===
+    function animateCounter(el, target, suffix) {
+      const duration = 1200;
+      const start = performance.now();
+      const ease = t => 1 - Math.pow(1 - t, 4);
+
+      function tick(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const value = Math.round(ease(progress) * target);
+        const formatted = value >= 1000
+          ? value.toLocaleString()
+          : String(value);
+        el.textContent = formatted + suffix;
+        if (progress < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // === PIPELINE STEP DEACTIVATE PREV ===
+    // Steps stay active once triggered (progress indicator feel)
+
+    // === PARALLAX HERO DECO ===
+    const heroDeco = document.querySelector('.hero-deco');
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      if (heroDeco) heroDeco.style.transform = `translateY(${y * 0.12}px)`;
+    }, { passive: true });
+
+    // === TICKER pause on hover ===
+    const track = document.querySelector('.ticker-track');
+    const wrap = document.querySelector('.ticker-wrap');
+    if (wrap && track) {
+      wrap.addEventListener('mouseenter', () => track.style.animationPlayState = 'paused');
+      wrap.addEventListener('mouseleave', () => track.style.animationPlayState = 'running');
+    }
+  </script>
+
+</body>
+</html>

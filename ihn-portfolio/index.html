@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Hate Networking — Jenny Chen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:wght@400;700&family=Playfair+Display:ital@1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f4ef;
+      --bg-warm: #f2ece4;
+      --fg: #0e0b08;
+      --fg-dim: rgba(14,11,8,0.42);
+      --fg-ghost: rgba(14,11,8,0.09);
+      --orange: #ff4500;
+      --orange-dim: rgba(255,69,0,0.08);
+      --orange-mid: rgba(255,69,0,0.18);
+      --green: #00875a;
+      --mono: 'Space Mono', monospace;
+      --sans: 'Space Grotesk', sans-serif;
+      --serif: 'Playfair Display', serif;
+      --body: 'Inter', sans-serif;
+      --ease-out-expo: cubic-bezier(0.16,1,0.3,1);
+      --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* CURSOR */
+    .cursor {
+      position: fixed;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--orange);
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 80ms ease, width 200ms var(--ease-spring), height 200ms var(--ease-spring), opacity 200ms;
+      transform: translate(-50%, -50%);
+    }
+    .cursor.expanded { width: 44px; height: 44px; opacity: 0.2; }
+
+    /* GRAIN */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.02; pointer-events: none; z-index: 1000;
+    }
+
+    /* GRID */
+    .grid-lines {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(14,11,8,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(14,11,8,0.035) 1px, transparent 1px);
+      background-size: 72px 72px;
+    }
+
+    /* PRELOADER */
+    #preloader {
+      position: fixed; inset: 0;
+      background: #f8f4ef;
+      z-index: 9000;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 500ms var(--ease-out-expo), visibility 500ms;
+    }
+    #preloader.done { opacity: 0; visibility: hidden; }
+    .pre-chars {
+      font-family: var(--mono);
+      font-size: clamp(12px, 1.4vw, 15px);
+      letter-spacing: 0.18em;
+      color: var(--fg-dim);
+    }
+    .pre-chars span {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: charIn 60ms forwards;
+    }
+    @keyframes charIn {
+      to { opacity: 1; transform: none; }
+    }
+
+    section { position: relative; z-index: 1; }
+
+    /* ========================
+       HERO
+    ======================== */
+    #hero {
+      min-height: 100vh;
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px) clamp(48px,6vh,80px);
+      display: grid;
+      grid-template-rows: 1fr auto;
+      overflow: hidden;
+    }
+
+    .hero-kicker {
+      font-family: var(--mono);
+      font-size: clamp(10px,1.1vw,12px);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: clamp(24px,3vh,48px);
+      display: flex; align-items: center; gap: 16px;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .hero-kicker.show { opacity: 1; transform: none; }
+    .kicker-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--orange);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.6); opacity: 0.5; }
+    }
+
+    .hero-h1 {
+      font-family: var(--sans);
+      font-weight: 700;
+      font-size: clamp(60px, 11vw, 176px);
+      line-height: 0.9;
+      letter-spacing: -0.035em;
+      margin-bottom: clamp(20px,2.5vh,32px);
+    }
+    .hero-h1 .line { overflow: hidden; display: block; }
+    .hero-h1 .line-inner {
+      display: block;
+      transform: translateY(110%);
+      transition: transform 700ms var(--ease-out-expo);
+    }
+    .hero-h1 .line-inner.show { transform: translateY(0); }
+    .hero-h1 .orange { color: var(--orange); }
+    .hero-h1 .dim { color: var(--fg-dim); }
+
+    .hero-byline {
+      font-family: var(--serif);
+      font-size: clamp(18px,2.2vw,30px);
+      font-style: italic;
+      color: var(--fg-dim);
+      margin-bottom: clamp(32px,4vh,56px);
+      opacity: 0; transform: translateY(14px);
+      transition: opacity 600ms 350ms var(--ease-out-expo), transform 600ms 350ms var(--ease-out-expo);
+    }
+    .hero-byline.show { opacity: 1; transform: none; }
+
+    .hero-live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,135,90,0.08);
+      border: 1px solid rgba(0,135,90,0.22);
+      padding: 8px 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green);
+      opacity: 0;
+      transition: opacity 600ms 500ms var(--ease-out-expo);
+    }
+    .hero-live-badge.show { opacity: 1; }
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .hero-deco {
+      position: absolute;
+      right: clamp(32px,5vw,80px);
+      top: clamp(80px,10vh,130px);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--fg-ghost);
+      text-align: right;
+      line-height: 2.2;
+      pointer-events: none;
+    }
+
+    .hero-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 1px solid var(--fg-ghost);
+      padding-top: 32px;
+      flex-wrap: wrap;
+      gap: 20px;
+      opacity: 0;
+      transition: opacity 700ms 700ms var(--ease-out-expo);
+    }
+    .hero-footer.show { opacity: 1; }
+    .hero-scroll {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .scroll-bar {
+      width: 36px; height: 1px;
+      background: currentColor;
+      transform-origin: left;
+      animation: barPulse 2s 1s var(--ease-out-expo) infinite;
+    }
+    @keyframes barPulse {
+      0%,100% { transform: scaleX(1); }
+      50% { transform: scaleX(2); }
+    }
+    .hero-stack {
+      display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
+    }
+    .chip {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      padding: 4px 10px;
+      border: 1px solid var(--fg-ghost);
+    }
+
+    /* ========================
+       TICKER
+    ======================== */
+    .ticker-wrap {
+      overflow: hidden;
+      padding: 14px 0;
+      border-top: 1px solid var(--fg-ghost);
+      border-bottom: 1px solid var(--fg-ghost);
+      background: var(--orange-dim);
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: ticker 32s linear infinite;
+    }
+    .ticker-item {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--orange);
+      padding: 0 36px;
+      white-space: nowrap;
+    }
+    .ticker-item::before { content: '✦ '; }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ========================
+       PROBLEM STATEMENT
+    ======================== */
+    #problem {
+      padding: clamp(80px,12vh,160px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .problem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(48px,6vw,96px);
+      align-items: start;
+    }
+    @media(max-width: 800px) { .problem-grid { grid-template-columns: 1fr; } }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 32px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .section-label::before {
+      content: '';
+      width: 28px; height: 1px;
+      background: var(--orange);
+    }
+
+    .problem-statement {
+      font-family: var(--sans);
+      font-size: clamp(28px,4vw,56px);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      line-height: 1.12;
+    }
+    .problem-statement .reveal-line { overflow: hidden; display: block; }
+    .problem-statement .reveal-inner {
+      display: block;
+      transform: translateY(105%);
+      transition: transform 600ms var(--ease-out-expo);
+    }
+    .problem-statement .reveal-inner.show { transform: none; }
+    .problem-statement .strike {
+      text-decoration: line-through;
+      color: var(--fg-dim);
+    }
+
+    .problem-right { padding-top: 8px; }
+    .problem-items { list-style: none; }
+    .problem-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--fg-ghost);
+      opacity: 0; transform: translateX(16px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .problem-item.show { opacity: 1; transform: none; }
+    .problem-num {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--orange);
+      padding-top: 3px;
+      flex-shrink: 0;
+    }
+    .problem-text {
+      font-size: 15px;
+      color: var(--fg-dim);
+      line-height: 1.6;
+    }
+    .problem-text strong { color: var(--fg); font-weight: 500; }
+
+    /* ========================
+       WHAT IT IS
+    ======================== */
+    #product {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+
+    .product-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(40px,5vw,80px);
+      margin-bottom: clamp(64px,8vh,120px);
+      align-items: start;
+    }
+    @media(max-width:800px) { .product-header { grid-template-columns: 1fr; } }
+
+    .product-title {
+      font-family: var(--sans);
+      font-size: clamp(40px,5.5vw,88px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 0.95;
+    }
+    .product-desc {
+      padding-top: 8px;
+      font-size: clamp(15px,1.5vw,17px);
+      color: var(--fg-dim);
+      line-height: 1.7;
+    }
+    .product-desc strong { color: var(--fg); font-weight: 500; }
+
+    .product-parts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--fg-ghost);
+    }
+    @media(max-width:700px) { .product-parts { grid-template-columns: 1fr; } }
+
+    .product-part {
+      background: var(--bg);
+      padding: clamp(28px,3.5vw,48px);
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo),
+                  background 100ms;
+    }
+    .product-part.show { opacity: 1; transform: none; }
+    .product-part:hover { background: rgba(255,69,0,0.03); }
+
+    .part-icon { font-size: 22px; margin-bottom: 20px; display: block; }
+    .part-name {
+      font-family: var(--sans);
+      font-size: clamp(16px,1.8vw,22px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+    .part-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 14px;
+    }
+    .part-desc {
+      font-size: clamp(13px,1.2vw,14px);
+      color: var(--fg-dim);
+      line-height: 1.65;
+    }
+
+    /* ========================
+       WORKFLOW
+    ======================== */
+    #workflow {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+      overflow: hidden;
+    }
+
+    .workflow-header {
+      margin-bottom: clamp(56px,7vh,96px);
+    }
+    .workflow-title {
+      font-family: var(--sans);
+      font-size: clamp(36px,5vw,80px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .workflow-sub {
+      font-size: 15px;
+      color: var(--fg-dim);
+      max-width: 500px;
+    }
+
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      position: relative;
+    }
+    @media(max-width:800px) {
+      .workflow-steps { grid-template-columns: 1fr 1fr; }
+    }
+    @media(max-width:500px) {
+      .workflow-steps { grid-template-columns: 1fr; }
+    }
+
+    .workflow-step {
+      padding: clamp(24px,3vw,40px) clamp(20px,2.5vw,36px) clamp(24px,3vw,40px) 0;
+      border-right: 1px solid var(--fg-ghost);
+      padding-right: clamp(20px,2.5vw,36px);
+      margin-right: 0;
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .workflow-step:last-child { border-right: none; }
+    .workflow-step.show { opacity: 1; transform: none; }
+
+    @media(max-width:800px) {
+      .workflow-step:nth-child(2n) { border-right: none; }
+    }
+    @media(max-width:500px) {
+      .workflow-step { border-right: none; border-bottom: 1px solid var(--fg-ghost); }
+      .workflow-step:last-child { border-bottom: none; }
+    }
+
+    .wstep-num {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--orange);
+      margin-bottom: 16px;
+    }
+    .wstep-icon {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 1px solid var(--fg-ghost);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 20px;
+      transition: border-color 300ms, box-shadow 300ms;
+    }
+    .workflow-step.show .wstep-icon {
+      border-color: var(--orange);
+      box-shadow: 0 0 16px rgba(255,69,0,0.12);
+    }
+    .wstep-name {
+      font-family: var(--sans);
+      font-size: clamp(15px,1.6vw,19px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 10px;
+    }
+    .wstep-detail {
+      list-style: none;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--fg-dim);
+      line-height: 1.9;
+    }
+    .wstep-detail li::before { content: '→ '; color: rgba(255,69,0,0.35); }
+
+    /* ========================
+       TECH HIGHLIGHT
+    ======================== */
+    #highlight {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+      background: linear-gradient(180deg, transparent, rgba(255,69,0,0.025) 50%, transparent);
+    }
+
+    .highlight-header {
+      margin-bottom: clamp(48px,6vh,80px);
+    }
+    .highlight-title {
+      font-family: var(--sans);
+      font-size: clamp(36px,5vw,72px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .highlight-sub {
+      font-size: 15px;
+      color: var(--fg-dim);
+      max-width: 500px;
+    }
+
+    .highlights-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--fg-ghost);
+    }
+    @media(max-width:700px) { .highlights-grid { grid-template-columns: 1fr; } }
+
+    .highlight-card {
+      background: var(--bg);
+      padding: clamp(28px,3.5vw,48px);
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 100ms;
+    }
+    .highlight-card.show { opacity: 1; transform: none; }
+    .highlight-card:hover { background: rgba(255,69,0,0.025); }
+    .highlight-card.featured {
+      grid-column: span 2;
+      background: var(--bg-warm);
+    }
+    @media(max-width:700px) { .highlight-card.featured { grid-column: span 1; } }
+
+    .hcard-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 14px;
+    }
+    .hcard-title {
+      font-family: var(--sans);
+      font-size: clamp(18px,2vw,24px);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+    }
+    .hcard-body {
+      font-size: clamp(13px,1.2vw,15px);
+      color: var(--fg-dim);
+      line-height: 1.65;
+    }
+    .hcard-body strong { color: var(--fg); font-weight: 500; }
+
+    .code-snippet {
+      margin-top: 16px;
+      background: rgba(14,11,8,0.04);
+      border: 1px solid var(--fg-ghost);
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--fg-dim);
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .code-snippet .kw { color: var(--orange); }
+    .code-snippet .str { color: var(--green); }
+    .code-snippet .cm { color: rgba(14,11,8,0.28); }
+
+    /* ========================
+       STATS
+    ======================== */
+    #stats {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+      gap: 1px;
+      background: var(--fg-ghost);
+    }
+    .stat-block {
+      background: var(--bg);
+      padding: clamp(28px,3.5vw,48px) clamp(20px,2.5vw,36px);
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .stat-block.show { opacity: 1; transform: none; }
+    .stat-num {
+      font-family: var(--sans);
+      font-size: clamp(40px,5vw,80px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--orange);
+      margin-bottom: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-unit {
+      font-size: 0.42em;
+      color: var(--fg-dim);
+      vertical-align: super;
+      letter-spacing: 0;
+    }
+    .stat-lbl {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      line-height: 1.6;
+    }
+
+    /* ========================
+       TECH STACK
+    ======================== */
+    #tech {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .tech-title {
+      font-family: var(--sans);
+      font-size: clamp(36px,5vw,72px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: clamp(48px,6vh,80px);
+    }
+    .tech-cols {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+      gap: 40px;
+    }
+    .tech-group-name {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .tech-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+    .tech-pill {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 11px;
+      border: 1px solid var(--fg-ghost);
+      color: var(--fg);
+      letter-spacing: 0.04em;
+      opacity: 0; transform: scale(0.94) translateY(8px);
+      transition: opacity 350ms var(--ease-out-expo), transform 350ms var(--ease-out-expo),
+                  border-color 100ms, background 100ms;
+    }
+    .tech-pill.show { opacity: 1; transform: none; }
+    .tech-pill:hover { border-color: var(--orange); background: var(--orange-dim); }
+
+    /* ========================
+       CODA
+    ======================== */
+    #coda {
+      padding: clamp(80px,12vh,160px) clamp(32px,5vw,80px);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 40px;
+    }
+    @media(max-width:700px) { #coda { grid-template-columns: 1fr; } }
+
+    .coda-kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      margin-bottom: 24px;
+    }
+    .coda-name {
+      font-family: var(--sans);
+      font-size: clamp(40px,7vw,112px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 0.92;
+      margin-bottom: 24px;
+    }
+    .coda-bio {
+      font-size: 16px;
+      color: var(--fg-dim);
+      line-height: 1.65;
+      max-width: 520px;
+    }
+    .coda-bio strong { color: var(--fg); font-weight: 500; }
+    .coda-actions {
+      display: flex; gap: 12px; flex-wrap: wrap;
+      margin-top: 40px;
+    }
+    .action-link {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 12px 22px;
+      border: 1px solid var(--fg-ghost);
+      color: var(--fg);
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: border-color 100ms, background 100ms;
+    }
+    .action-link:hover { border-color: var(--orange); background: var(--orange-dim); }
+    .action-link.primary {
+      background: var(--orange);
+      color: #fff;
+      border-color: var(--orange);
+      font-weight: 700;
+    }
+    .action-link.primary:hover { background: var(--fg); border-color: var(--fg); }
+
+    .coda-meta {
+      text-align: right;
+    }
+    .coda-meta-text {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: rgba(14,11,8,0.2);
+      line-height: 2.2;
+    }
+
+    /* UTILITY */
+    .fade-up {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .fade-up.show { opacity: 1; transform: none; }
+
+    /* back link */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+      text-decoration: none;
+      margin: 24px 0 0 clamp(32px,5vw,80px);
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity 600ms 900ms var(--ease-out-expo), color 100ms;
+    }
+    .back-link.show { opacity: 1; }
+    .back-link:hover { color: var(--orange); }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="grid-lines"></div>
+
+  <div id="preloader">
+    <div class="pre-chars" id="preChars"></div>
+  </div>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-deco">
+      Chrome Extension<br>
+      v1.3.4<br>
+      Live on Web Store<br>
+      Built 2025–2026
+    </div>
+
+    <div>
+      <div class="hero-kicker" id="heroKicker">
+        <span class="kicker-dot"></span>
+        GTM Tools · Case Study 02
+      </div>
+
+      <h1 class="hero-h1">
+        <span class="line"><span class="line-inner" id="line1">I hate</span></span>
+        <span class="line"><span class="line-inner orange" id="line2">networking.</span></span>
+        <span class="line"><span class="line-inner dim" id="line3">So I built</span></span>
+        <span class="line"><span class="line-inner" id="line4">a bot.</span></span>
+      </h1>
+
+      <p class="hero-byline" id="heroByline">
+        GTM operator who builds the tools. This one turns every Luma event guest list into a stack of LinkedIn connections, automatically.
+      </p>
+
+      <div class="hero-live-badge" id="heroBadge">
+        <span class="live-dot"></span>
+        Live on Chrome Web Store
+      </div>
+    </div>
+
+    <div class="hero-footer" id="heroFooter">
+      <div class="hero-scroll">
+        <div class="scroll-bar"></div>
+        Scroll to explore
+      </div>
+      <div class="hero-stack">
+        <span class="chip">300+ connections sent</span>
+        <span class="chip">12+ events</span>
+        <span class="chip">25/day responsible cap</span>
+        <span class="chip">shipped &amp; live</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span class="ticker-item">Luma Scraping</span>
+      <span class="ticker-item">LinkedIn Voyager API</span>
+      <span class="ticker-item">Rate Limiting</span>
+      <span class="ticker-item">Campaign Queue</span>
+      <span class="ticker-item">Profile Enrichment</span>
+      <span class="ticker-item">Business Hours Gating</span>
+      <span class="ticker-item">Telegram Bot</span>
+      <span class="ticker-item">Supabase Sync</span>
+      <span class="ticker-item">Chrome Extension</span>
+      <span class="ticker-item">Anti-Spam Design</span>
+      <span class="ticker-item">Luma Scraping</span>
+      <span class="ticker-item">LinkedIn Voyager API</span>
+      <span class="ticker-item">Rate Limiting</span>
+      <span class="ticker-item">Campaign Queue</span>
+      <span class="ticker-item">Profile Enrichment</span>
+      <span class="ticker-item">Business Hours Gating</span>
+      <span class="ticker-item">Telegram Bot</span>
+      <span class="ticker-item">Supabase Sync</span>
+      <span class="ticker-item">Chrome Extension</span>
+      <span class="ticker-item">Anti-Spam Design</span>
+    </div>
+  </div>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <div class="problem-grid">
+      <div>
+        <div class="section-label">The Problem</div>
+        <p class="problem-statement" id="problemStatement">
+          <span class="reveal-line"><span class="reveal-inner">You go to events.</span></span>
+          <span class="reveal-line"><span class="reveal-inner">You meet people.</span></span>
+          <span class="reveal-line"><span class="reveal-inner strike">You follow up.</span></span>
+          <span class="reveal-line"><span class="reveal-inner">Nobody does.</span></span>
+        </p>
+      </div>
+      <div class="problem-right">
+        <ul class="problem-items">
+          <li class="problem-item">
+            <span class="problem-num">01</span>
+            <p class="problem-text"><strong>Luma shows you who attended.</strong> 50, 100, 200 people. Their names. Their faces. All right there.</p>
+          </li>
+          <li class="problem-item">
+            <span class="problem-num">02</span>
+            <p class="problem-text"><strong>LinkedIn is where business happens.</strong> But manually searching each person? That's 3+ hours of work per event.</p>
+          </li>
+          <li class="problem-item">
+            <span class="problem-num">03</span>
+            <p class="problem-text"><strong>So nobody does it.</strong> The warmest leads you'll ever have — people you were literally in the same room with — go cold in 48 hours.</p>
+          </li>
+          <li class="problem-item">
+            <span class="problem-num">04</span>
+            <p class="problem-text"><strong>I automated the whole thing.</strong> Scan the guest list. Match LinkedIn profiles. Send personalized notes. Staggered. Human-paced. Automatic.</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCT -->
+  <section id="product">
+    <div class="product-header fade-up">
+      <h2 class="product-title">Three parts.<br>One system.</h2>
+      <div>
+        <p class="product-desc">
+          A <strong>Chrome extension</strong> that lives in your sidebar. A <strong>web dashboard</strong> to track every campaign. A <strong>Telegram bot</strong> watching over it all.
+          Together, they turn attending an event into a stack of pending LinkedIn connections — with zero manual work.
+        </p>
+      </div>
+    </div>
+
+    <div class="product-parts">
+      <div class="product-part">
+        <span class="part-icon">🧩</span>
+        <div class="part-name">Chrome Extension</div>
+        <div class="part-tag">TypeScript · Manifest V3</div>
+        <p class="part-desc">Side panel UI. Detects Luma event pages automatically. Scans the full guest list, lazy-loading all attendees. Finds LinkedIn profiles. Queues connections. Runs entirely in your browser — no server required.</p>
+      </div>
+      <div class="product-part">
+        <span class="part-icon">📊</span>
+        <div class="part-name">Dashboard</div>
+        <div class="part-tag">Next.js · Supabase · Vercel</div>
+        <p class="part-desc">Track every campaign across every event. See pending, sent, accepted, and failed connections. Cumulative progress graph. CSV export. Real-time Supabase sync so the data is always current.</p>
+      </div>
+      <div class="product-part">
+        <span class="part-icon">🤖</span>
+        <div class="part-name">Telegram Bot</div>
+        <div class="part-tag">Node.js · pm2 · UptimeRobot</div>
+        <p class="part-desc">24/7 VPS monitoring. Responds to /status, /health, /logs commands. Pings on errors. UptimeRobot checks every 5 minutes. Also routes queries to Claude with MCP access for intelligent debugging.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section id="workflow">
+    <div class="workflow-header fade-up">
+      <h2 class="workflow-title">The Workflow</h2>
+      <p class="workflow-sub">Four steps. The first one is manual. The rest run on their own.</p>
+    </div>
+    <div class="workflow-steps" id="workflowSteps">
+      <div class="workflow-step">
+        <div class="wstep-num">Step 01</div>
+        <div class="wstep-icon">📅</div>
+        <div class="wstep-name">Attend Event</div>
+        <ul class="wstep-detail">
+          <li>Show up to any Luma event</li>
+          <li>Open the event page after</li>
+          <li>Extension auto-detects it</li>
+        </ul>
+      </div>
+      <div class="workflow-step">
+        <div class="wstep-num">Step 02</div>
+        <div class="wstep-icon">🔍</div>
+        <div class="wstep-name">Scan Attendees</div>
+        <ul class="wstep-detail">
+          <li>One click to scan</li>
+          <li>Lazy-loads all guests</li>
+          <li>Matches LinkedIn profiles</li>
+          <li>Stores to Supabase</li>
+        </ul>
+      </div>
+      <div class="workflow-step">
+        <div class="wstep-num">Step 03</div>
+        <div class="wstep-icon">✍️</div>
+        <div class="wstep-name">Write a Note</div>
+        <ul class="wstep-detail">
+          <li>One personalized message</li>
+          <li>Auto-fills event name</li>
+          <li>Launch campaign</li>
+          <li>Queue created instantly</li>
+        </ul>
+      </div>
+      <div class="workflow-step">
+        <div class="wstep-num">Step 04</div>
+        <div class="wstep-icon">⚡</div>
+        <div class="wstep-name">Connections Send</div>
+        <ul class="wstep-detail">
+          <li>Every 15–30 minutes</li>
+          <li>Business hours only</li>
+          <li>25/day cap by design</li>
+          <li>Zero manual work</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH HIGHLIGHT -->
+  <section id="highlight">
+    <div class="highlight-header fade-up">
+      <h2 class="highlight-title">How I Shipped It</h2>
+      <p class="highlight-sub">Warm intros are the #1 pipeline channel at every early-stage company. Most people never capture them. Building the infrastructure to do it at scale meant solving a few genuinely hard problems.</p>
+    </div>
+    <div class="highlights-grid">
+
+      <div class="highlight-card featured">
+        <div class="hcard-label">The Core Hack</div>
+        <div class="hcard-title">LinkedIn Voyager API — Not the Official One</div>
+        <p class="hcard-body">
+          LinkedIn's public API requires business approval and doesn't allow connection requests. So I reverse-engineered their internal <strong>Voyager REST API</strong> — the same one their own frontend uses.
+          The extension extracts the CSRF token from the <strong>JSESSIONID cookie</strong>, crafts the right headers (<code>x-li-track</code>, <code>x-li-page-instance</code>), and calls the
+          <code>voyagerRelationshipsDashMemberRelationships</code> endpoint directly. All routed through a hidden LinkedIn tab to stay same-origin and avoid CORS blocks.
+        </p>
+        <div class="code-snippet">
+<span class="cm">// content/linkedin.ts — calls LinkedIn's internal API directly</span>
+<span class="kw">const</span> csrfToken = <span class="kw">await</span> getCsrfFromCookie(); <span class="cm">// extracted from JSESSIONID</span>
+<span class="kw">const</span> res = <span class="kw">await</span> fetch(<span class="str">'/voyagerRelationshipsDashMemberRelationships?action=verifyQuotaAndCreateV2'</span>, {
+  method: <span class="str">'POST'</span>,
+  headers: {
+    <span class="str">'csrf-token'</span>: csrfToken,
+    <span class="str">'x-li-track'</span>: buildTrackHeader(), <span class="cm">// mimics LinkedIn's own frontend</span>
+    <span class="str">'x-restli-protocol-version'</span>: <span class="str">'2.0.0'</span>
+  },
+  body: buildConnectionPayload(profileUrn, noteText)
+});
+        </div>
+      </div>
+
+      <div class="highlight-card">
+        <div class="hcard-label">Relationship Design</div>
+        <div class="hcard-title">Human-Paced by Design</div>
+        <p class="hcard-body">
+          Aggressive outreach kills relationships. So this is deliberately slow: <strong>25 connections/day</strong>, <strong>15-30 min random delays</strong>, only during <strong>6am-11pm</strong> local time. Zero bans in production. The insight here is a GTM one, not an engineering one: volume without trust is noise.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="section-label" style="margin-bottom:48px">By the numbers</div>
+    <div class="stats-grid">
+      <div class="stat-block">
+        <div class="stat-num" data-target="300" data-suffix="+">0</div>
+        <div class="stat-lbl">connections<br>sent</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" data-target="12" data-suffix="+">0</div>
+        <div class="stat-lbl">Luma events<br>run through it</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" data-target="34" data-suffix="%">0</div>
+        <div class="stat-lbl">acceptance<br>rate</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" data-target="25" data-suffix="/day">0</div>
+        <div class="stat-lbl">responsible<br>send cap</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" data-target="0">0</div>
+        <div class="stat-lbl">LinkedIn bans<br>in production</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" data-target="48" data-suffix="h">0</div>
+        <div class="stat-lbl">before warm<br>leads go cold</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH -->
+  <section id="tech">
+    <h2 class="tech-title fade-up">Tech Stack</h2>
+    <div class="tech-cols">
+      <div>
+        <div class="tech-group-name">Extension</div>
+        <div class="tech-pills">
+          <span class="tech-pill">TypeScript</span>
+          <span class="tech-pill">Chrome Manifest V3</span>
+          <span class="tech-pill">esbuild</span>
+          <span class="tech-pill">Service Worker</span>
+          <span class="tech-pill">Content Scripts</span>
+          <span class="tech-pill">Side Panel API</span>
+        </div>
+      </div>
+      <div>
+        <div class="tech-group-name">APIs</div>
+        <div class="tech-pills">
+          <span class="tech-pill">LinkedIn Voyager API</span>
+          <span class="tech-pill">Luma Event API</span>
+          <span class="tech-pill">Supabase</span>
+          <span class="tech-pill">Telegram Bot API</span>
+        </div>
+      </div>
+      <div>
+        <div class="tech-group-name">Dashboard</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Next.js</span>
+          <span class="tech-pill">TypeScript</span>
+          <span class="tech-pill">Vercel</span>
+          <span class="tech-pill">Supabase Auth</span>
+        </div>
+      </div>
+      <div>
+        <div class="tech-group-name">Infrastructure</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Node.js</span>
+          <span class="tech-pill">pm2</span>
+          <span class="tech-pill">UptimeRobot</span>
+          <span class="tech-pill">Playwright</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CODA -->
+  <section id="coda">
+    <div>
+      <div class="coda-kicker">Built by</div>
+      <h2 class="coda-name fade-up">Jenny<br>Chen</h2>
+      <p class="coda-bio">
+        <strong>GTM operator turned builder.</strong> I hate doing things manually that a computer can do for me. So I build the tools.
+        Targeting GTM + Partnerships roles at Series A-B AI companies.
+      </p>
+      <div class="coda-actions">
+        <a href="https://linkedin.com/in/tjennychen" class="action-link primary" target="_blank">→ LinkedIn</a>
+        <a href="mailto:tjennychen@gmail.com" class="action-link" target="_blank">Get in touch</a>
+        <a href="../index.html" class="action-link">&#8592; All Projects</a>
+      </div>
+    </div>
+    <div class="coda-meta">
+      <div class="coda-meta-text">
+        I Hate Networking<br>
+        v1.3.4<br>
+        ihatenetwork.space<br>
+        2025–2026
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // CURSOR
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    });
+    document.querySelectorAll('a, button, .product-part, .tech-pill, .highlight-card').forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('expanded'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('expanded'));
+    });
+
+    // PRELOADER
+    const preChars = document.getElementById('preChars');
+    const txt = 'IHN.launch()';
+    txt.split('').forEach((ch, i) => {
+      const s = document.createElement('span');
+      s.textContent = ch === ' ' ? '\u00A0' : ch;
+      s.style.animationDelay = (i * 45) + 'ms';
+      preChars.appendChild(s);
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('preloader').classList.add('done');
+        initHero();
+      }, txt.length * 45 + 280);
+    });
+
+    function initHero() {
+      document.getElementById('heroKicker').classList.add('show');
+      ['line1','line2','line3','line4'].forEach((id, i) => {
+        setTimeout(() => document.getElementById(id).classList.add('show'), i * 90);
+      });
+      setTimeout(() => document.getElementById('heroByline').classList.add('show'), 380);
+      setTimeout(() => document.getElementById('heroBadge').classList.add('show'), 520);
+      setTimeout(() => document.getElementById('heroFooter').classList.add('show'), 680);
+    }
+
+    // TICKER pause on hover
+    const track = document.querySelector('.ticker-track');
+    document.querySelector('.ticker-wrap').addEventListener('mouseenter', () => track.style.animationPlayState = 'paused');
+    document.querySelector('.ticker-wrap').addEventListener('mouseleave', () => track.style.animationPlayState = 'running');
+
+    // INTERSECTION OBSERVER
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+
+        if (el.id === 'problemStatement') {
+          el.querySelectorAll('.reveal-inner').forEach((w, i) => {
+            setTimeout(() => w.classList.add('show'), i * 100);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('problem-item')) {
+          document.querySelectorAll('.problem-item').forEach((item, i) => {
+            setTimeout(() => item.classList.add('show'), i * 100);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('product-part')) {
+          document.querySelectorAll('.product-part').forEach((p, i) => {
+            setTimeout(() => p.classList.add('show'), i * 100);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('workflow-step')) {
+          document.querySelectorAll('.workflow-step').forEach((s, i) => {
+            setTimeout(() => s.classList.add('show'), i * 130);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('highlight-card')) {
+          document.querySelectorAll('.highlight-card').forEach((c, i) => {
+            setTimeout(() => c.classList.add('show'), i * 90);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('stat-block')) {
+          el.classList.add('show');
+          const numEl = el.querySelector('.stat-num');
+          animateCounter(numEl, parseInt(numEl.dataset.target), numEl.dataset.suffix || '');
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('tech-pill')) {
+          document.querySelectorAll('.tech-pill').forEach((p, i) => {
+            setTimeout(() => p.classList.add('show'), i * 35);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        el.classList.add('show');
+      });
+    }, { threshold: 0.12 });
+
+    document.getElementById('problemStatement') && io.observe(document.getElementById('problemStatement'));
+    document.querySelector('.problem-item') && io.observe(document.querySelector('.problem-item'));
+    document.querySelector('.product-part') && io.observe(document.querySelector('.product-part'));
+    document.querySelector('.workflow-step') && io.observe(document.querySelector('.workflow-step'));
+    document.querySelector('.highlight-card') && io.observe(document.querySelector('.highlight-card'));
+    document.querySelectorAll('.stat-block').forEach(el => io.observe(el));
+    document.querySelector('.tech-pill') && io.observe(document.querySelector('.tech-pill'));
+    document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+    // COUNTER
+    function animateCounter(el, target, suffix) {
+      const dur = 1100;
+      const start = performance.now();
+      const ease = t => 1 - Math.pow(1 - t, 4);
+      (function tick(now) {
+        const p = Math.min((now - start) / dur, 1);
+        el.textContent = Math.round(ease(p) * target) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      })(performance.now());
+    }
+
+    // PARALLAX hero deco
+    const heroDeco = document.querySelector('.hero-deco');
+    window.addEventListener('scroll', () => {
+      if (heroDeco) heroDeco.style.transform = `translateY(${window.scrollY * 0.1}px)`;
+    }, { passive: true });
+  </script>
+
+</body>
+</html>

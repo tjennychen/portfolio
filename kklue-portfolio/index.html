@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D2C Competitor Intelligence — Jenny Chen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital@1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f6f3ee;
+      --bg-warm: #f0ece5;
+      --fg: #0c0a07;
+      --fg-dim: rgba(12,10,7,0.42);
+      --fg-ghost: rgba(12,10,7,0.09);
+      --teal: #0d6b58;
+      --teal-dim: rgba(13,107,88,0.08);
+      --teal-mid: rgba(13,107,88,0.18);
+      --red: #c4402a;
+      --gold-accent: #b89059;
+      --green-accent: #8a9155;
+      --dark-accent: #2a2824;
+      --mono: 'Space Mono', monospace;
+      --sans: 'Space Grotesk', sans-serif;
+      --serif: 'Playfair Display', serif;
+      --body: 'Inter', sans-serif;
+      --ease-out-expo: cubic-bezier(0.16,1,0.3,1);
+      --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    .cursor {
+      position: fixed; width: 10px; height: 10px; border-radius: 50%;
+      background: var(--teal); pointer-events: none; z-index: 9999;
+      transition: transform 80ms ease, width 200ms var(--ease-spring), height 200ms var(--ease-spring), opacity 200ms;
+      transform: translate(-50%, -50%);
+    }
+    .cursor.expanded { width: 44px; height: 44px; opacity: 0.2; }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.02; pointer-events: none; z-index: 1000;
+    }
+
+    .grid-lines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(12,10,7,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(12,10,7,0.035) 1px, transparent 1px);
+      background-size: 72px 72px;
+    }
+
+    #preloader {
+      position: fixed; inset: 0; background: #f6f3ee; z-index: 9000;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 500ms var(--ease-out-expo), visibility 500ms;
+    }
+    #preloader.done { opacity: 0; visibility: hidden; }
+    .pre-chars {
+      font-family: var(--mono); font-size: clamp(12px, 1.4vw, 15px);
+      letter-spacing: 0.18em; color: var(--fg-dim);
+    }
+    .pre-chars span { display: inline-block; opacity: 0; transform: translateY(8px); animation: charIn 60ms forwards; }
+    @keyframes charIn { to { opacity: 1; transform: none; } }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.5; } }
+    @keyframes barPulse { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(2); } }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    @keyframes targetPulse { 0%,100% { r: 8; opacity: 1; } 50% { r: 12; opacity: 0.55; } }
+
+    section { position: relative; z-index: 1; }
+
+    .section-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 32px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .section-label::before { content: ''; width: 28px; height: 1px; background: var(--teal); }
+
+    .fade-up {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .fade-up.show { opacity: 1; transform: none; }
+
+    /* ======================== HERO ======================== */
+    #hero {
+      min-height: 100vh;
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px) clamp(48px,6vh,80px);
+      display: grid; grid-template-rows: 1fr auto; overflow: hidden;
+    }
+    .hero-deco {
+      position: absolute; right: clamp(32px,5vw,80px); top: clamp(80px,10vh,130px);
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+      color: var(--fg-ghost); text-align: right; line-height: 2.2; pointer-events: none;
+    }
+    .hero-kicker {
+      font-family: var(--mono); font-size: clamp(10px,1.1vw,12px); letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--teal); margin-bottom: clamp(24px,3vh,48px);
+      display: flex; align-items: center; gap: 16px;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .hero-kicker.show { opacity: 1; transform: none; }
+    .kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: pulse 2s ease-in-out infinite; }
+
+    .hero-h1 {
+      font-family: var(--sans); font-weight: 700; font-size: clamp(48px, 9vw, 144px);
+      line-height: 0.92; letter-spacing: -0.035em; margin-bottom: clamp(20px,2.5vh,32px);
+    }
+    .hero-h1 .line { overflow: hidden; display: block; }
+    .hero-h1 .line-inner { display: block; transform: translateY(110%); transition: transform 700ms var(--ease-out-expo); }
+    .hero-h1 .line-inner.show { transform: translateY(0); }
+    .hero-h1 .teal { color: var(--teal); }
+    .hero-h1 .dim { color: var(--fg-dim); }
+
+    .hero-byline {
+      font-family: var(--body); font-size: clamp(15px,1.6vw,19px); font-weight: 300;
+      color: var(--fg-dim); margin-bottom: clamp(32px,4vh,56px); max-width: 640px; line-height: 1.6;
+      opacity: 0; transform: translateY(14px);
+      transition: opacity 600ms 350ms var(--ease-out-expo), transform 600ms 350ms var(--ease-out-expo);
+    }
+    .hero-byline.show { opacity: 1; transform: none; }
+    .hero-byline em { color: var(--fg); font-style: normal; font-weight: 500; }
+
+    .hero-footer {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      border-top: 1px solid var(--fg-ghost); padding-top: 32px; flex-wrap: wrap; gap: 20px;
+      opacity: 0; transition: opacity 700ms 700ms var(--ease-out-expo);
+    }
+    .hero-footer.show { opacity: 1; }
+    .hero-scroll { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--fg-dim); display: flex; align-items: center; gap: 14px; }
+    .scroll-bar { width: 36px; height: 1px; background: currentColor; transform-origin: left; animation: barPulse 2s 1s var(--ease-out-expo) infinite; }
+    .hero-stack { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .chip { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-dim); padding: 4px 10px; border: 1px solid var(--fg-ghost); }
+
+    /* ======================== TICKER ======================== */
+    .ticker-wrap { overflow: hidden; padding: 14px 0; border-top: 1px solid var(--fg-ghost); border-bottom: 1px solid var(--fg-ghost); background: var(--teal-dim); }
+    .ticker-track { display: flex; width: max-content; animation: ticker 40s linear infinite; }
+    .ticker-item { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--teal); padding: 0 36px; white-space: nowrap; }
+    .ticker-item::before { content: '◆ '; }
+
+    /* ======================== OUTPUT ======================== */
+    #output {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .output-header { margin-bottom: clamp(48px,6vh,80px); }
+    .output-title {
+      font-family: var(--sans); font-size: clamp(36px,5vw,80px); font-weight: 700;
+      letter-spacing: -0.03em; line-height: 1; margin-bottom: 12px;
+    }
+    .output-sub { font-size: 15px; color: var(--fg-dim); max-width: 560px; line-height: 1.7; }
+
+    .output-grid {
+      display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(32px,4vw,64px); align-items: start;
+    }
+    @media(max-width:900px) { .output-grid { grid-template-columns: 1fr; } }
+
+    .chart-container {
+      background: #fff; border: 1px solid var(--fg-ghost); padding: clamp(20px,2.5vw,32px);
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .chart-container.show { opacity: 1; transform: none; }
+    .chart-title {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 16px;
+    }
+    .chart-legend {
+      display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--fg-dim);
+    }
+    .chart-legend span { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .bubble-chart { width: 100%; height: auto; }
+    .bubble-chart text { font-family: 'Space Grotesk', sans-serif; }
+    .bubble-chart .axis-label { font-family: 'Space Mono', monospace; font-size: 8px; fill: rgba(12,10,7,0.35); }
+    .bubble-chart .axis-title { font-family: 'Space Mono', monospace; font-size: 9px; fill: rgba(12,10,7,0.5); letter-spacing: 0.1em; }
+    .bubble-chart .brand-label { font-size: 9px; fill: rgba(12,10,7,0.7); font-weight: 500; }
+    .bubble-chart .brand-data { font-family: 'Space Mono', monospace; font-size: 7.5px; fill: rgba(12,10,7,0.4); }
+    .bubble-chart .gap-band { fill: rgba(12,10,7,0.03); }
+    .bubble-chart .gap-label { font-family: 'Space Mono', monospace; font-size: 8px; fill: rgba(12,10,7,0.25); }
+    .target-ring { animation: targetPulse 2.4s ease-in-out infinite; }
+
+    /* Revenue bars */
+    .revenue-container {
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 600ms 200ms var(--ease-out-expo), transform 600ms 200ms var(--ease-out-expo);
+    }
+    .revenue-container.show { opacity: 1; transform: none; }
+    .revenue-title {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 20px;
+    }
+    .rev-row {
+      display: grid; grid-template-columns: 120px 1fr 60px; align-items: center; gap: 10px;
+      padding: 6px 0; border-bottom: 1px solid var(--fg-ghost);
+    }
+    .rev-brand { font-family: var(--body); font-size: 13px; font-weight: 500; text-align: right; }
+    .rev-bar-track { height: 18px; position: relative; overflow: hidden; }
+    .rev-bar-fill {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+      transition: width 800ms var(--ease-out-expo);
+    }
+    .rev-amount { font-family: var(--mono); font-size: 12px; color: var(--fg-dim); }
+    .rev-row.target-row { border: 1px dashed var(--teal-mid); background: var(--teal-dim); border-bottom: 1px dashed var(--teal-mid); }
+    .rev-row.target-row .rev-brand { color: var(--teal); font-weight: 700; }
+    .rev-row.target-row .rev-amount { color: var(--teal); font-weight: 700; }
+
+    /* ======================== ENGINE ======================== */
+    #engine {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+      background: linear-gradient(180deg, transparent, rgba(13,107,88,0.03) 50%, transparent);
+    }
+    .engine-header { margin-bottom: clamp(56px,7vh,96px); }
+    .engine-title {
+      font-family: var(--sans); font-size: clamp(36px,5vw,80px); font-weight: 700;
+      letter-spacing: -0.03em; line-height: 1; margin-bottom: 16px;
+    }
+    .engine-sub { font-size: clamp(15px,1.5vw,17px); color: var(--fg-dim); max-width: 600px; line-height: 1.7; }
+
+    .engine-examples {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: var(--fg-ghost); margin-bottom: clamp(48px,6vh,80px);
+    }
+    @media(max-width: 800px) { .engine-examples { grid-template-columns: 1fr; } }
+
+    .engine-card {
+      background: var(--bg); padding: clamp(28px,3.5vw,48px);
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 100ms;
+    }
+    .engine-card.show { opacity: 1; transform: none; }
+    .engine-card:hover { background: rgba(13,107,88,0.03); }
+    .ecard-brand { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--teal); margin-bottom: 16px; }
+    .ecard-engine { font-family: var(--sans); font-size: clamp(18px,2vw,24px); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 12px; }
+    .ecard-stat { font-family: var(--sans); font-size: clamp(40px,5vw,72px); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--teal); margin-bottom: 6px; }
+    .ecard-stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--fg-dim); }
+    .ecard-detail { margin-top: 16px; font-size: 14px; color: var(--fg-dim); line-height: 1.6; }
+
+    .engine-table-wrap { margin-top: clamp(32px,4vh,48px); }
+    .engine-reveal-title {
+      font-family: var(--sans); font-size: clamp(24px,3.5vw,48px); font-weight: 700;
+      letter-spacing: -0.025em; line-height: 1.1; margin-bottom: 8px;
+    }
+    .engine-reveal-sub { font-size: 15px; color: var(--fg-dim); max-width: 640px; line-height: 1.6; margin-bottom: clamp(24px,3vh,40px); }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .data-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-dim); text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--fg-ghost); white-space: nowrap; }
+    .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--fg-ghost); vertical-align: top; }
+    .data-table tr { transition: background 100ms; }
+    .data-table tbody tr:hover { background: rgba(13,107,88,0.04); }
+    .data-table .num { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--teal); font-weight: 700; }
+    .data-table .brand-name { font-weight: 500; }
+    .data-table .engine-name { color: var(--fg-dim); font-size: 13px; }
+
+    /* ======================== PIPELINE ======================== */
+    #pipeline {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .pipeline-header { margin-bottom: clamp(56px,7vh,96px); }
+    .pipeline-title {
+      font-family: var(--sans); font-size: clamp(36px,5vw,80px); font-weight: 700;
+      letter-spacing: -0.03em; line-height: 1; margin-bottom: 12px;
+    }
+    .pipeline-sub { font-size: 15px; color: var(--fg-dim); max-width: 500px; }
+
+    .pipeline-steps {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--fg-ghost);
+    }
+    @media(max-width:700px) { .pipeline-steps { grid-template-columns: 1fr; } }
+
+    .pipe-step {
+      background: var(--bg); padding: clamp(28px,3.5vw,48px);
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 100ms;
+    }
+    .pipe-step.show { opacity: 1; transform: none; }
+    .pipe-step:hover { background: rgba(13,107,88,0.03); }
+    .pipe-layer { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--teal); margin-bottom: 16px; }
+    .pipe-name { font-family: var(--sans); font-size: clamp(18px,2vw,24px); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 10px; }
+    .pipe-detail { list-style: none; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--fg-dim); line-height: 1.9; }
+    .pipe-detail li::before { content: '> '; color: rgba(13,107,88,0.35); }
+    .pipe-output { margin-top: 16px; font-size: 13px; color: var(--fg); font-weight: 500; border-left: 2px solid var(--teal-mid); padding-left: 12px; }
+
+    /* ======================== WHITESPACE ======================== */
+    #whitespace {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .whitespace-header {
+      display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px,5vw,80px);
+      margin-bottom: clamp(56px,7vh,96px); align-items: start;
+    }
+    @media(max-width:800px) { .whitespace-header { grid-template-columns: 1fr; } }
+    .whitespace-title { font-family: var(--sans); font-size: clamp(36px,5vw,80px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+    .whitespace-desc { padding-top: 8px; font-size: clamp(15px,1.5vw,17px); color: var(--fg-dim); line-height: 1.7; }
+    .whitespace-desc strong { color: var(--fg); font-weight: 500; }
+
+    .calendar-label { font-family: var(--sans); font-size: clamp(24px,3vw,40px); font-weight: 700; letter-spacing: -0.02em; margin-bottom: clamp(24px,3vh,40px); }
+    .calendar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--fg-ghost); }
+    .calendar-card {
+      background: var(--bg); padding: clamp(24px,3vw,40px);
+      opacity: 0; transform: translateY(16px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .calendar-card.show { opacity: 1; transform: none; }
+    .cal-moment { font-family: var(--sans); font-size: clamp(15px,1.6vw,19px); font-weight: 600; margin-bottom: 6px; }
+    .cal-status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal); margin-bottom: 10px; }
+    .cal-detail { font-size: 13px; color: var(--fg-dim); line-height: 1.6; }
+
+    /* ======================== STRESS TEST ======================== */
+    #stresstest {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+      background: linear-gradient(180deg, transparent, rgba(13,107,88,0.025) 50%, transparent);
+    }
+    .stress-header { margin-bottom: clamp(48px,6vh,80px); }
+    .stress-title { font-family: var(--sans); font-size: clamp(36px,5vw,72px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; margin-bottom: 12px; }
+    .stress-sub { font-size: 15px; color: var(--fg-dim); max-width: 560px; line-height: 1.7; }
+    .persona-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1px; background: var(--fg-ghost); }
+    .persona-card {
+      background: var(--bg); padding: clamp(28px,3.5vw,48px);
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 100ms;
+    }
+    .persona-card.show { opacity: 1; transform: none; }
+    .persona-card:hover { background: rgba(13,107,88,0.03); }
+    .persona-role { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--teal); margin-bottom: 14px; }
+    .persona-name { font-family: var(--sans); font-size: clamp(18px,2vw,24px); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 4px; }
+    .persona-title { font-size: 13px; color: var(--fg-dim); margin-bottom: 14px; }
+    .persona-quote { font-family: var(--serif); font-style: italic; font-size: clamp(14px,1.3vw,16px); color: var(--fg-dim); line-height: 1.6; border-left: 2px solid var(--teal-mid); padding-left: 16px; }
+
+    /* ======================== STATS ======================== */
+    #stats {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 1px; background: var(--fg-ghost); }
+    .stat-block {
+      background: var(--bg); padding: clamp(28px,3.5vw,48px) clamp(20px,2.5vw,36px);
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .stat-block.show { opacity: 1; transform: none; }
+    .stat-num { font-family: var(--sans); font-size: clamp(40px,5vw,80px); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--teal); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+    .stat-unit { font-size: 0.42em; color: var(--fg-dim); vertical-align: super; letter-spacing: 0; }
+    .stat-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-dim); line-height: 1.6; }
+
+    /* ======================== TECH ======================== */
+    #tech {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .tech-title { font-family: var(--sans); font-size: clamp(36px,5vw,72px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; margin-bottom: clamp(48px,6vh,80px); }
+    .tech-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 40px; }
+    .tech-group-name { font-family: var(--mono); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--fg-ghost); }
+    .tech-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+    .tech-pill {
+      font-family: var(--mono); font-size: 11px; padding: 5px 11px; border: 1px solid var(--fg-ghost);
+      color: var(--fg); letter-spacing: 0.04em;
+      opacity: 0; transform: scale(0.94) translateY(8px);
+      transition: opacity 350ms var(--ease-out-expo), transform 350ms var(--ease-out-expo), border-color 100ms, background 100ms;
+    }
+    .tech-pill.show { opacity: 1; transform: none; }
+    .tech-pill:hover { border-color: var(--teal); background: var(--teal-dim); }
+
+    /* ======================== CODA ======================== */
+    #coda {
+      padding: clamp(80px,12vh,160px) clamp(32px,5vw,80px);
+      display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 40px;
+    }
+    @media(max-width:700px) { #coda { grid-template-columns: 1fr; } }
+    .coda-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 24px; }
+    .coda-name { font-family: var(--sans); font-size: clamp(40px,7vw,112px); font-weight: 700; letter-spacing: -0.04em; line-height: 0.92; margin-bottom: 24px; }
+    .coda-bio { font-size: 16px; color: var(--fg-dim); line-height: 1.65; max-width: 520px; }
+    .coda-bio strong { color: var(--fg); font-weight: 500; }
+    .coda-transfer {
+      margin-top: 24px; font-family: var(--mono); font-size: 13px; letter-spacing: 0.05em;
+      color: var(--teal); font-weight: 700; padding: 12px 16px; background: var(--teal-dim); display: inline-block;
+    }
+    .coda-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+    .action-link {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+      text-decoration: none; padding: 12px 22px; border: 1px solid var(--fg-ghost); color: var(--fg);
+      display: inline-flex; align-items: center; gap: 8px; transition: border-color 100ms, background 100ms;
+    }
+    .action-link:hover { border-color: var(--teal); background: var(--teal-dim); }
+    .action-link.primary { background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 700; }
+    .action-link.primary:hover { background: var(--fg); border-color: var(--fg); }
+    .coda-meta { text-align: right; }
+    .coda-meta-text { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: rgba(12,10,7,0.2); line-height: 2.2; }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="grid-lines"></div>
+  <div id="preloader"><div class="pre-chars" id="preChars"></div></div>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-deco">Intelligence System<br>13 Brands Mapped<br>Pipeline Built 2026<br>D2C Market Entry</div>
+    <div>
+      <div class="hero-kicker" id="heroKicker"><span class="kicker-dot"></span>D2C Intelligence · Case Study 03</div>
+      <h1 class="hero-h1">
+        <span class="line"><span class="line-inner" id="line1">Competitor</span></span>
+        <span class="line"><span class="line-inner teal" id="line2">intelligence</span></span>
+        <span class="line"><span class="line-inner dim" id="line3">pipeline.</span></span>
+      </h1>
+      <p class="hero-byline" id="heroByline">
+        Most competitive analysis is Google searches dressed up as strategy. I built a system that <em>reverse-engineers any D2C brand's growth engine</em> from API data, automated scraping, and adversarial stress-testing.
+      </p>
+    </div>
+    <div class="hero-footer" id="heroFooter">
+      <div class="hero-scroll"><div class="scroll-bar"></div>Scroll to explore</div>
+      <div class="hero-stack">
+        <span class="chip">13 brands mapped</span>
+        <span class="chip">6,851 lines synthesized</span>
+        <span class="chip">automated pipeline</span>
+        <span class="chip">48h to replicate</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span class="ticker-item">Mejuri</span><span class="ticker-item">Gorjana</span><span class="ticker-item">Monica Vinader</span><span class="ticker-item">Ring Concierge</span><span class="ticker-item">Missoma</span><span class="ticker-item">Polene Paris</span><span class="ticker-item">Aurate NY</span><span class="ticker-item">Linjer</span><span class="ticker-item">ByChari</span><span class="ticker-item">Adina Eden</span><span class="ticker-item">ALOHAS</span><span class="ticker-item">Senreve</span><span class="ticker-item">GLDN</span>
+      <span class="ticker-item">Mejuri</span><span class="ticker-item">Gorjana</span><span class="ticker-item">Monica Vinader</span><span class="ticker-item">Ring Concierge</span><span class="ticker-item">Missoma</span><span class="ticker-item">Polene Paris</span><span class="ticker-item">Aurate NY</span><span class="ticker-item">Linjer</span><span class="ticker-item">ByChari</span><span class="ticker-item">Adina Eden</span><span class="ticker-item">ALOHAS</span><span class="ticker-item">Senreve</span><span class="ticker-item">GLDN</span>
+    </div>
+  </div>
+
+  <!-- SYSTEM OUTPUT -->
+  <section id="output">
+    <div class="output-header fade-up">
+      <div class="section-label">System Output</div>
+      <h2 class="output-title">What the Pipeline<br>Produces</h2>
+      <p class="output-sub">A client brand entering the US fine jewelry market needed to understand where every competitor sits and where the gaps are. The system produced this in under 72 hours.</p>
+    </div>
+
+    <div class="output-grid">
+      <!-- BUBBLE CHART -->
+      <div class="chart-container" id="bubbleChart">
+        <div class="chart-title">Competitive Positioning Map</div>
+        <svg class="bubble-chart" viewBox="0 0 600 420" xmlns="http://www.w3.org/2000/svg">
+          <!-- Grid -->
+          <line x1="60" y1="370" x2="580" y2="370" stroke="rgba(12,10,7,0.1)" stroke-width="1"/>
+          <line x1="60" y1="30" x2="60" y2="370" stroke="rgba(12,10,7,0.1)" stroke-width="1"/>
+          <!-- Y grid lines -->
+          <line x1="60" y1="320" x2="580" y2="320" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="60" y1="270" x2="580" y2="270" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="60" y1="220" x2="580" y2="220" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="60" y1="160" x2="580" y2="160" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="60" y1="100" x2="580" y2="100" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <!-- X grid lines -->
+          <line x1="160" y1="30" x2="160" y2="370" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="270" y1="30" x2="270" y2="370" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="380" y1="30" x2="380" y2="370" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="490" y1="30" x2="490" y2="370" stroke="rgba(12,10,7,0.04)" stroke-width="1" stroke-dasharray="4"/>
+
+          <!-- Material cost gap band -->
+          <rect class="gap-band" x="60" y="155" width="520" height="90" rx="2"/>
+          <text class="gap-label" x="570" y="205" text-anchor="end">$30-$100 MATERIAL COST GAP</text>
+
+          <!-- Axis labels -->
+          <text class="axis-title" x="320" y="400" text-anchor="middle">AOV — AVERAGE ORDER VALUE</text>
+          <text class="axis-title" x="15" y="200" text-anchor="middle" transform="rotate(-90,15,200)">MATERIAL COST (LOG)</text>
+          <text class="axis-label" x="60" y="388">$100</text>
+          <text class="axis-label" x="160" y="388">$250</text>
+          <text class="axis-label" x="270" y="388">$400</text>
+          <text class="axis-label" x="380" y="388">$600</text>
+          <text class="axis-label" x="490" y="388">$900</text>
+          <text class="axis-label" x="55" y="322" text-anchor="end">$10</text>
+          <text class="axis-label" x="55" y="245" text-anchor="end">$30</text>
+          <text class="axis-label" x="55" y="160" text-anchor="end">$100</text>
+          <text class="axis-label" x="55" y="100" text-anchor="end">$200</text>
+          <text class="axis-label" x="55" y="50" text-anchor="end">$550</text>
+
+          <!-- Bubbles: Plated/Vermeil (red) -->
+          <circle cx="93" cy="320" r="25" fill="#c4402a" opacity="0.2" stroke="#c4402a" stroke-width="1"/>
+          <text class="brand-label" x="93" y="298" text-anchor="middle">MEJURI</text>
+          <text class="brand-data" x="93" y="308" text-anchor="middle">$160 · 6%</text>
+
+          <circle cx="145" cy="310" r="21" fill="#c4402a" opacity="0.2" stroke="#c4402a" stroke-width="1"/>
+          <text class="brand-label" x="145" y="288" text-anchor="middle">GORJANA</text>
+          <text class="brand-data" x="145" y="298" text-anchor="middle">$260 · 5%</text>
+
+          <circle cx="152" cy="275" r="10" fill="#c4402a" opacity="0.2" stroke="#c4402a" stroke-width="1"/>
+          <text class="brand-label" x="172" y="272" text-anchor="start">M. VINADER</text>
+          <text class="brand-data" x="172" y="282" text-anchor="start">$260 · 8%</text>
+
+          <circle cx="78" cy="325" r="5" fill="#c4402a" opacity="0.2" stroke="#c4402a" stroke-width="1"/>
+          <text class="brand-label" x="78" y="340" text-anchor="middle">MISSOMA</text>
+
+          <!-- Bubbles: Mid-tier (gold) -->
+          <circle cx="72" cy="290" r="9" fill="#b89059" opacity="0.2" stroke="#b89059" stroke-width="1"/>
+          <text class="brand-label" x="72" y="278" text-anchor="middle">ADINA</text>
+
+          <circle cx="115" cy="243" r="11" fill="#b89059" opacity="0.2" stroke="#b89059" stroke-width="1"/>
+          <text class="brand-label" x="132" y="237" text-anchor="start">LINJER</text>
+          <text class="brand-data" x="132" y="247" text-anchor="start">$175 · 17%</text>
+
+          <!-- Bubbles: Solid gold (green) -->
+          <circle cx="205" cy="140" r="6" fill="#8a9155" opacity="0.25" stroke="#8a9155" stroke-width="1"/>
+          <text class="brand-label" x="215" y="133" text-anchor="start">AURATE</text>
+          <text class="brand-data" x="215" y="143" text-anchor="start">$350 · 36%</text>
+
+          <circle cx="270" cy="118" r="8" fill="#8a9155" opacity="0.25" stroke="#8a9155" stroke-width="1"/>
+          <text class="brand-label" x="282" y="112" text-anchor="start">BYCHARI</text>
+          <text class="brand-data" x="282" y="122" text-anchor="start">$500 · 33%</text>
+
+          <circle cx="530" cy="58" r="3" fill="#8a9155" opacity="0.25" stroke="#8a9155" stroke-width="1"/>
+          <text class="brand-label" x="515" y="50" text-anchor="end">KINN</text>
+
+          <!-- Fine (dark) -->
+          <circle cx="370" cy="42" r="10" fill="#2a2824" opacity="0.15" stroke="#2a2824" stroke-width="1"/>
+          <text class="brand-label" x="384" y="37" text-anchor="start">RING CONC.</text>
+          <text class="brand-data" x="384" y="47" text-anchor="start">$710 · 77%</text>
+
+          <!-- Target entry point -->
+          <circle class="target-ring" cx="230" cy="158" r="8" fill="none" stroke="#0d6b58" stroke-width="2" stroke-dasharray="4 2"/>
+          <circle cx="230" cy="158" r="3" fill="#0d6b58"/>
+          <text class="brand-label" x="244" y="154" text-anchor="start" fill="#0d6b58" font-weight="700">TARGET</text>
+          <text class="brand-data" x="244" y="164" text-anchor="start" fill="#0d6b58">$400 · 25%</text>
+        </svg>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:#c4402a"></span>&lt; 10% mat. ratio</span>
+          <span><span class="legend-dot" style="background:#b89059"></span>10-30% mat. ratio</span>
+          <span><span class="legend-dot" style="background:#8a9155"></span>30%+ solid gold</span>
+          <span><span class="legend-dot" style="background:#2a2824"></span>60%+ premium</span>
+          <span><span class="legend-dot" style="background:#0d6b58"></span>Target entry</span>
+        </div>
+      </div>
+
+      <!-- REVENUE BARS -->
+      <div class="revenue-container" id="revBars">
+        <div class="revenue-title">US Annual Revenue</div>
+        <div class="rev-row"><div class="rev-brand">Mejuri</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="100" style="background:#c4402a;opacity:0.5"></div></div><div class="rev-amount">$104M</div></div>
+        <div class="rev-row"><div class="rev-brand">Gorjana</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="67" style="background:#c4402a;opacity:0.5"></div></div><div class="rev-amount">$70M</div></div>
+        <div class="rev-row"><div class="rev-brand">Linjer</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="19" style="background:#b89059;opacity:0.6"></div></div><div class="rev-amount">$20M</div></div>
+        <div class="rev-row"><div class="rev-brand">Monica Vinader</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="16" style="background:#c4402a;opacity:0.5"></div></div><div class="rev-amount">$17M</div></div>
+        <div class="rev-row"><div class="rev-brand">Ring Concierge</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="14" style="background:#2a2824;opacity:0.35"></div></div><div class="rev-amount">$14.8M</div></div>
+        <div class="rev-row"><div class="rev-brand">Adina's Jewels</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="12" style="background:#b89059;opacity:0.6"></div></div><div class="rev-amount">$12M</div></div>
+        <div class="rev-row"><div class="rev-brand">ByChari</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="10" style="background:#8a9155;opacity:0.5"></div></div><div class="rev-amount">$10M</div></div>
+        <div class="rev-row"><div class="rev-brand">Aurate NY</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="6" style="background:#8a9155;opacity:0.5"></div></div><div class="rev-amount">$6.1M</div></div>
+        <div class="rev-row"><div class="rev-brand">Missoma</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="4" style="background:#c4402a;opacity:0.5"></div></div><div class="rev-amount">$4M</div></div>
+        <div class="rev-row"><div class="rev-brand">Kinn Studio</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="1" style="background:#8a9155;opacity:0.5"></div></div><div class="rev-amount">$760K</div></div>
+        <div class="rev-row target-row"><div class="rev-brand">Client Target</div><div class="rev-bar-track"><div class="rev-bar-fill" data-pct="2" style="background:#0d6b58;opacity:0.6"></div></div><div class="rev-amount">$2M</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HIDDEN ENGINE -->
+  <section id="engine">
+    <div class="engine-header fade-up">
+      <div class="section-label">Pattern Discovered</div>
+      <h2 class="engine-title">Every Brand Has a<br>Hidden Engine</h2>
+      <p class="engine-sub">The pipeline surfaced a pattern nobody was tracking. Strip the top 5 posts from any influencer program and the median drops to 100 to 500 likes. Every program is propped up by one niche.</p>
+    </div>
+
+    <div class="engine-examples" id="engineExamples">
+      <div class="engine-card">
+        <div class="ecard-brand">Gorjana</div>
+        <div class="ecard-engine">WNBA Athletes</div>
+        <div class="ecard-stat">45%</div>
+        <div class="ecard-stat-label">of all program likes</div>
+        <p class="ecard-detail">Cameron Brink, Jessica Pegula. 23% of posts generate 45% of engagement. Remove the athletes and the program is noise.</p>
+      </div>
+      <div class="engine-card">
+        <div class="ecard-brand">Polene Paris</div>
+        <div class="ecard-engine">One Korean Macro</div>
+        <div class="ecard-stat">25%</div>
+        <div class="ecard-stat-label">of total program likes</div>
+        <p class="ecard-detail">@page.soobin. One post. 1.08M likes. A single creator produced a quarter of the entire 2,000 post program.</p>
+      </div>
+      <div class="engine-card">
+        <div class="ecard-brand">Monica Vinader</div>
+        <div class="ecard-engine">Nail Artists</div>
+        <div class="ecard-stat">37.9%</div>
+        <div class="ecard-stat-label">of all program likes</div>
+        <p class="ecard-detail">@simlynail, @thenaillologist. 4.8% of posts, nearly 38% of engagement. A 921 person roster depending on two creators.</p>
+      </div>
+    </div>
+
+    <div class="engine-table-wrap fade-up">
+      <h3 class="engine-reveal-title">Across All 13 Brands</h3>
+      <p class="engine-reveal-sub">Not anecdotal. Every single brand follows this structure: a small cluster of culturally resonant creators producing wildly disproportionate results.</p>
+      <table class="data-table">
+        <thead><tr><th>Brand</th><th>Hidden Engine</th><th>% Posts</th><th>% Likes</th></tr></thead>
+        <tbody>
+          <tr><td class="brand-name">Aurate</td><td class="engine-name">Kerry Washington</td><td class="num">1.4%</td><td class="num">59%</td></tr>
+          <tr><td class="brand-name">Gorjana</td><td class="engine-name">WNBA + athlete program</td><td class="num">23%</td><td class="num">45%</td></tr>
+          <tr><td class="brand-name">Monica Vinader</td><td class="engine-name">Nail artists</td><td class="num">4.8%</td><td class="num">37.9%</td></tr>
+          <tr><td class="brand-name">Polene Paris</td><td class="engine-name">Korean/Thai/Japanese macros</td><td class="num">0.9%</td><td class="num">37.4%</td></tr>
+          <tr><td class="brand-name">Ring Concierge</td><td class="engine-name">Giveaway mechanics</td><td class="num">5.4%</td><td class="num">28.1%</td></tr>
+          <tr><td class="brand-name">GLDN</td><td class="engine-name">Aly & AJ celebrity collab</td><td class="num">3.1%</td><td class="num">19.8%</td></tr>
+          <tr><td class="brand-name">Mejuri</td><td class="engine-name">@maybeboth (LTK lifestyle)</td><td class="num">~1%</td><td class="num">~17%</td></tr>
+          <tr><td class="brand-name">Linjer</td><td class="engine-name">HK/Cantonese creator cluster</td><td class="num">5.1%</td><td class="num">15.5%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- HOW THE PIPELINE WORKS -->
+  <section id="pipeline">
+    <div class="pipeline-header fade-up">
+      <div class="section-label">The System</div>
+      <h2 class="pipeline-title">Three Layers</h2>
+      <p class="pipeline-sub">Not a research process. A repeatable pipeline with automated collection, structured analysis, and adversarial validation.</p>
+    </div>
+    <div class="pipeline-steps" id="pipelineSteps">
+      <div class="pipe-step">
+        <div class="pipe-layer">Layer 01 · Collection</div>
+        <div class="pipe-name">Automated Data Pull</div>
+        <ul class="pipe-detail">
+          <li>Modash API: top creators per brand</li>
+          <li>Mid-tier + collaborator networks</li>
+          <li>Playwright scrapers for verification</li>
+          <li>Chrome DevTools Protocol for captions</li>
+          <li>Screenshot capture for evidence</li>
+        </ul>
+        <div class="pipe-output">Output: raw creator data across 13 brands, 1000s of profiles verified</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-layer">Layer 02 · Analysis</div>
+        <div class="pipe-name">Pattern Extraction</div>
+        <ul class="pipe-detail">
+          <li>Cross-brand engagement analysis</li>
+          <li>Hidden engine identification</li>
+          <li>Paid vs affiliate performance</li>
+          <li>Demographic gap mapping</li>
+          <li>Calendar whitespace detection</li>
+        </ul>
+        <div class="pipe-output">Output: 6,851 lines of synthesis, 7 creator archetypes, positioning map</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-layer">Layer 03 · Validation</div>
+        <div class="pipe-name">Adversarial Stress Test</div>
+        <ul class="pipe-detail">
+          <li>7 fictional personas with real stakes</li>
+          <li>Customer, competitor, investor voices</li>
+          <li>Cultural translation pressure test</li>
+          <li>Operational feasibility check</li>
+          <li>Strategy must survive all 7</li>
+        </ul>
+        <div class="pipe-output">Output: battle-tested strategy ready for execution</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHITESPACE -->
+  <section id="whitespace">
+    <div class="whitespace-header">
+      <div>
+        <div class="section-label">What It Found</div>
+        <h2 class="whitespace-title fade-up">The Lane Nobody<br>Owns</h2>
+      </div>
+      <div>
+        <p class="whitespace-desc fade-up">
+          The pipeline identified a structural gap: <strong>not a single brand has built a deliberate Asian-American influencer program</strong>. Across 13 competitors and thousands of creator partnerships, the largest fine jewelry consumer demographic with no representation in any major brand's creator strategy.
+        </p>
+      </div>
+    </div>
+
+    <div class="calendar-label fade-up">Cultural Calendar, Also Uncontested</div>
+    <div class="calendar-grid" id="calendarGrid">
+      <div class="calendar-card">
+        <div class="cal-moment">Lunar New Year</div>
+        <div class="cal-status">Uncontested</div>
+        <p class="cal-detail">The biggest cultural moment for the target audience. One competitor ran one giveaway. Nobody else.</p>
+      </div>
+      <div class="calendar-card">
+        <div class="cal-moment">Korean-American Day</div>
+        <div class="cal-status">Uncontested</div>
+        <p class="cal-detail">January 13. Not a single competitor has ever activated around it.</p>
+      </div>
+      <div class="calendar-card">
+        <div class="cal-moment">AAPI Heritage Month</div>
+        <div class="cal-status">Uncontested</div>
+        <p class="cal-detail">May. An entire month. One competitor did one giveaway. None of the other 12 acknowledged it.</p>
+      </div>
+      <div class="calendar-card">
+        <div class="cal-moment">Chuseok</div>
+        <div class="cal-status">Uncontested</div>
+        <p class="cal-detail">September. Multiple competitors go dark entirely. A Korean harvest festival with no competition.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STRESS TEST -->
+  <section id="stresstest">
+    <div class="stress-header fade-up">
+      <div class="section-label">Validation Layer</div>
+      <h2 class="stress-title">7 Personas Tried<br>to Kill It</h2>
+      <p class="stress-sub">Before delivery, the pipeline includes a structured adversarial debate. Seven fictional voices with real stakes and real skepticism. A strategy that survives this room is a strategy worth executing.</p>
+    </div>
+    <div class="persona-grid" id="personaGrid">
+      <div class="persona-card">
+        <div class="persona-role">Target Customer</div>
+        <div class="persona-name">Jade Chen</div>
+        <div class="persona-title">Asian-American Tastemaker, 220K followers</div>
+        <p class="persona-quote">"If the brand story feels constructed, I'm out. I can tell within two seconds."</p>
+      </div>
+      <div class="persona-card">
+        <div class="persona-role">Target Customer</div>
+        <div class="persona-name">Amy Liu</div>
+        <div class="persona-title">Practical Mom, Marketing Manager</div>
+        <p class="persona-quote">"Just tell me exactly what I'm buying. What karat? Made where? Will it survive my life?"</p>
+      </div>
+      <div class="persona-card">
+        <div class="persona-role">Competitor Voice</div>
+        <div class="persona-name">"Alex"</div>
+        <div class="persona-title">Composite: 5+ years DTC jewelry experience</div>
+        <p class="persona-quote">"We respect the product. We've seen this pitch before. Distribution wins, not materials."</p>
+      </div>
+      <div class="persona-card">
+        <div class="persona-role">Investor Lens</div>
+        <div class="persona-name">Rachel Kim</div>
+        <div class="persona-title">Principal, Consumer-focused VC</div>
+        <p class="persona-quote">"Show me cohort retention before you show me the influencer plan. Beautiful brands die every quarter."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="section-label" style="margin-bottom:48px">Pipeline Metrics</div>
+    <div class="stats-grid">
+      <div class="stat-block"><div class="stat-num" data-target="13">0</div><div class="stat-lbl">brands<br>mapped</div></div>
+      <div class="stat-block"><div class="stat-num" data-target="6851" data-suffix="+">0</div><div class="stat-lbl">lines<br>synthesized</div></div>
+      <div class="stat-block"><div class="stat-num" data-target="7">0</div><div class="stat-lbl">creator archetypes<br>identified</div></div>
+      <div class="stat-block"><div class="stat-num" data-target="48" data-suffix="h">0</div><div class="stat-lbl">to replicate<br>for new vertical</div></div>
+      <div class="stat-block"><div class="stat-num" data-target="3">0</div><div class="stat-lbl">pipeline<br>layers</div></div>
+      <div class="stat-block"><div class="stat-num" data-target="7">0</div><div class="stat-lbl">adversarial<br>personas</div></div>
+    </div>
+  </section>
+
+  <!-- TECH -->
+  <section id="tech">
+    <h2 class="tech-title fade-up">Pipeline Stack</h2>
+    <div class="tech-cols">
+      <div>
+        <div class="tech-group-name">Collection Layer</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Modash.io API</span>
+          <span class="tech-pill">Python</span>
+          <span class="tech-pill">Playwright</span>
+          <span class="tech-pill">Chrome DevTools Protocol</span>
+          <span class="tech-pill">Node.js</span>
+        </div>
+      </div>
+      <div>
+        <div class="tech-group-name">Analysis Layer</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Cross-brand Pattern ID</span>
+          <span class="tech-pill">Engagement Analytics</span>
+          <span class="tech-pill">Demographic Mapping</span>
+          <span class="tech-pill">Calendar Analysis</span>
+        </div>
+      </div>
+      <div>
+        <div class="tech-group-name">Validation Layer</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Adversarial Personas</span>
+          <span class="tech-pill">Stress-Test Framework</span>
+          <span class="tech-pill">Cultural Translation Audit</span>
+        </div>
+      </div>
+      <div>
+        <div class="tech-group-name">Deliverables</div>
+        <div class="tech-pills">
+          <span class="tech-pill">Positioning Map (SVG)</span>
+          <span class="tech-pill">Revenue Landscape</span>
+          <span class="tech-pill">Interactive HTML Deck</span>
+          <span class="tech-pill">3-Year GTM Plan</span>
+          <span class="tech-pill">Budget Model</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CODA -->
+  <section id="coda">
+    <div>
+      <div class="coda-kicker">Built by</div>
+      <h2 class="coda-name fade-up">Jenny<br>Chen</h2>
+      <p class="coda-bio">
+        <strong>I build intelligence systems, not slide decks.</strong> This pipeline reverse-engineers any D2C brand's competitive landscape from API data, automated verification, and adversarial stress-testing. The judgment is mine. The system makes it repeatable.
+      </p>
+      <div class="coda-transfer">Time to replicate for a new vertical: 48 hours.</div>
+      <div class="coda-actions">
+        <a href="https://linkedin.com/in/tjennychen" class="action-link primary" target="_blank">LinkedIn</a>
+        <a href="mailto:tjennychen@gmail.com" class="action-link" target="_blank">Get in touch</a>
+        <a href="../index.html" class="action-link">&#8592; All Projects</a>
+      </div>
+    </div>
+    <div class="coda-meta">
+      <div class="coda-meta-text">D2C Intelligence Pipeline<br>13 Brands Mapped<br>Built 2026<br>Repeatable System</div>
+    </div>
+  </section>
+
+  <script>
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => { cursor.style.left = e.clientX + 'px'; cursor.style.top = e.clientY + 'px'; });
+    document.querySelectorAll('a, button, .engine-card, .tech-pill, .persona-card, .calendar-card, .data-table tbody tr, .rev-row, .pipe-step').forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('expanded'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('expanded'));
+    });
+
+    const preChars = document.getElementById('preChars');
+    const txt = 'pipeline.init()';
+    txt.split('').forEach((ch, i) => {
+      const s = document.createElement('span');
+      s.textContent = ch === ' ' ? '\u00A0' : ch;
+      s.style.animationDelay = (i * 45) + 'ms';
+      preChars.appendChild(s);
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(() => { document.getElementById('preloader').classList.add('done'); initHero(); }, txt.length * 45 + 280);
+    });
+
+    function initHero() {
+      document.getElementById('heroKicker').classList.add('show');
+      ['line1','line2','line3'].forEach((id, i) => { setTimeout(() => document.getElementById(id).classList.add('show'), i * 90); });
+      setTimeout(() => document.getElementById('heroByline').classList.add('show'), 380);
+      setTimeout(() => document.getElementById('heroFooter').classList.add('show'), 680);
+    }
+
+    const track = document.querySelector('.ticker-track');
+    document.querySelector('.ticker-wrap').addEventListener('mouseenter', () => track.style.animationPlayState = 'paused');
+    document.querySelector('.ticker-wrap').addEventListener('mouseleave', () => track.style.animationPlayState = 'running');
+
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+
+        if (el.classList.contains('engine-card')) {
+          document.querySelectorAll('.engine-card').forEach((c, i) => { setTimeout(() => c.classList.add('show'), i * 150); });
+          io.unobserve(el); return;
+        }
+        if (el.classList.contains('pipe-step')) {
+          document.querySelectorAll('.pipe-step').forEach((s, i) => { setTimeout(() => s.classList.add('show'), i * 150); });
+          io.unobserve(el); return;
+        }
+        if (el.classList.contains('persona-card')) {
+          document.querySelectorAll('.persona-card').forEach((c, i) => { setTimeout(() => c.classList.add('show'), i * 100); });
+          io.unobserve(el); return;
+        }
+        if (el.classList.contains('calendar-card')) {
+          document.querySelectorAll('.calendar-card').forEach((c, i) => { setTimeout(() => c.classList.add('show'), i * 90); });
+          io.unobserve(el); return;
+        }
+        if (el.classList.contains('stat-block')) {
+          el.classList.add('show');
+          const numEl = el.querySelector('.stat-num');
+          animateCounter(numEl, parseInt(numEl.dataset.target), numEl.dataset.suffix || '');
+          io.unobserve(el); return;
+        }
+        if (el.classList.contains('tech-pill')) {
+          document.querySelectorAll('.tech-pill').forEach((p, i) => { setTimeout(() => p.classList.add('show'), i * 35); });
+          io.unobserve(el); return;
+        }
+        if (el.classList.contains('chart-container')) {
+          el.classList.add('show'); io.unobserve(el); return;
+        }
+        if (el.classList.contains('revenue-container')) {
+          el.classList.add('show');
+          setTimeout(() => {
+            el.querySelectorAll('.rev-bar-fill').forEach((fill, i) => {
+              setTimeout(() => { fill.style.width = fill.dataset.pct + '%'; }, i * 60);
+            });
+          }, 200);
+          io.unobserve(el); return;
+        }
+        el.classList.add('show');
+      });
+    }, { threshold: 0.12 });
+
+    document.querySelector('.chart-container') && io.observe(document.querySelector('.chart-container'));
+    document.querySelector('.revenue-container') && io.observe(document.querySelector('.revenue-container'));
+    document.querySelector('.engine-card') && io.observe(document.querySelector('.engine-card'));
+    document.querySelector('.pipe-step') && io.observe(document.querySelector('.pipe-step'));
+    document.querySelector('.persona-card') && io.observe(document.querySelector('.persona-card'));
+    document.querySelector('.calendar-card') && io.observe(document.querySelector('.calendar-card'));
+    document.querySelectorAll('.stat-block').forEach(el => io.observe(el));
+    document.querySelector('.tech-pill') && io.observe(document.querySelector('.tech-pill'));
+    document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+    function animateCounter(el, target, suffix) {
+      const dur = 1100, start = performance.now();
+      const ease = t => 1 - Math.pow(1 - t, 4);
+      (function tick(now) {
+        const p = Math.min((now - start) / dur, 1);
+        el.textContent = Math.round(ease(p) * target) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      })(performance.now());
+    }
+
+    const heroDeco = document.querySelector('.hero-deco');
+    window.addEventListener('scroll', () => {
+      if (heroDeco) heroDeco.style.transform = 'translateY(' + (window.scrollY * 0.1) + 'px)';
+    }, { passive: true });
+  </script>
+
+</body>
+</html>

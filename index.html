@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jenny Chen — AI Builder Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital@1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f6f3ed;
+      --bg-warm: #f0ece4;
+      --fg: #0d0b08;
+      --fg-dim: rgba(13,11,8,0.42);
+      --fg-ghost: rgba(13,11,8,0.09);
+      --fg-whisper: rgba(13,11,8,0.05);
+      --mono: 'Space Mono', monospace;
+      --sans: 'Space Grotesk', sans-serif;
+      --serif: 'Playfair Display', serif;
+      --body: 'Inter', sans-serif;
+      --ease-out-expo: cubic-bezier(0.16,1,0.3,1);
+      --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* CURSOR */
+    .cursor {
+      position: fixed; width: 10px; height: 10px; border-radius: 50%;
+      background: var(--fg); pointer-events: none; z-index: 9999;
+      transition: transform 80ms ease, width 200ms var(--ease-spring), height 200ms var(--ease-spring), opacity 200ms, background 300ms;
+      transform: translate(-50%, -50%);
+    }
+    .cursor.expanded { width: 44px; height: 44px; opacity: 0.18; }
+
+    /* GRAIN */
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.02; pointer-events: none; z-index: 1000;
+    }
+
+    /* GRID */
+    .grid-lines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(13,11,8,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(13,11,8,0.03) 1px, transparent 1px);
+      background-size: 72px 72px;
+    }
+
+    /* PRELOADER */
+    #preloader {
+      position: fixed; inset: 0; background: var(--bg); z-index: 9000;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 500ms var(--ease-out-expo), visibility 500ms;
+    }
+    #preloader.done { opacity: 0; visibility: hidden; }
+    .pre-chars {
+      font-family: var(--mono); font-size: clamp(12px, 1.4vw, 15px);
+      letter-spacing: 0.18em; color: var(--fg-dim);
+    }
+    .pre-chars span {
+      display: inline-block; opacity: 0; transform: translateY(8px);
+      animation: charIn 60ms forwards;
+    }
+    @keyframes charIn { to { opacity: 1; transform: none; } }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.5; } }
+    @keyframes barPulse { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(2); } }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    section { position: relative; z-index: 1; }
+
+    .section-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 32px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .section-label::before {
+      content: ''; width: 28px; height: 1px; background: var(--fg);
+    }
+
+    .fade-up {
+      opacity: 0; transform: translateY(22px);
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .fade-up.show { opacity: 1; transform: none; }
+
+    /* ======================== HERO ======================== */
+    #hero {
+      min-height: 100vh;
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px) clamp(48px,6vh,80px);
+      display: grid; grid-template-rows: 1fr auto; overflow: hidden;
+    }
+    .hero-deco {
+      position: absolute; right: clamp(32px,5vw,80px); top: clamp(80px,10vh,130px);
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+      color: var(--fg-ghost); text-align: right; line-height: 2.2; pointer-events: none;
+    }
+    .hero-kicker {
+      font-family: var(--mono); font-size: clamp(10px,1.1vw,12px); letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: clamp(24px,3vh,48px);
+      display: flex; align-items: center; gap: 16px;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+    }
+    .hero-kicker.show { opacity: 1; transform: none; }
+    .kicker-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--fg);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .hero-h1 {
+      font-family: var(--sans); font-weight: 700; font-size: clamp(56px, 10vw, 160px);
+      line-height: 0.9; letter-spacing: -0.04em; margin-bottom: clamp(20px,2.5vh,32px);
+    }
+    .hero-h1 .line { overflow: hidden; display: block; }
+    .hero-h1 .line-inner {
+      display: block; transform: translateY(110%);
+      transition: transform 700ms var(--ease-out-expo);
+    }
+    .hero-h1 .line-inner.show { transform: translateY(0); }
+    .hero-h1 .dim { color: var(--fg-dim); }
+
+    .hero-byline {
+      font-family: var(--body); font-size: clamp(15px,1.6vw,19px); font-weight: 300;
+      color: var(--fg-dim); margin-bottom: clamp(32px,4vh,56px); max-width: 600px; line-height: 1.7;
+      opacity: 0; transform: translateY(14px);
+      transition: opacity 600ms 350ms var(--ease-out-expo), transform 600ms 350ms var(--ease-out-expo);
+    }
+    .hero-byline.show { opacity: 1; transform: none; }
+    .hero-byline em { color: var(--fg); font-style: normal; font-weight: 500; }
+
+    .hero-footer {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      border-top: 1px solid var(--fg-ghost); padding-top: 32px;
+      flex-wrap: wrap; gap: 20px;
+      opacity: 0; transition: opacity 700ms 700ms var(--ease-out-expo);
+    }
+    .hero-footer.show { opacity: 1; }
+    .hero-scroll {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--fg-dim);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .scroll-bar {
+      width: 36px; height: 1px; background: currentColor;
+      transform-origin: left; animation: barPulse 2s 1s var(--ease-out-expo) infinite;
+    }
+    .hero-stack { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .chip {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--fg-dim); padding: 4px 10px;
+      border: 1px solid var(--fg-ghost);
+    }
+
+    /* ======================== TICKER ======================== */
+    .ticker-wrap {
+      overflow: hidden; padding: 14px 0;
+      border-top: 1px solid var(--fg-ghost); border-bottom: 1px solid var(--fg-ghost);
+      background: var(--fg-whisper);
+    }
+    .ticker-track { display: flex; width: max-content; animation: ticker 50s linear infinite; }
+    .ticker-item {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--fg-dim); padding: 0 36px; white-space: nowrap;
+    }
+    .ticker-item::before { content: '◆ '; }
+
+    /* ======================== FEATURED PROJECTS ======================== */
+    #featured {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .featured-header { margin-bottom: clamp(48px,6vh,80px); }
+    .featured-title {
+      font-family: var(--sans); font-size: clamp(36px,5vw,80px); font-weight: 700;
+      letter-spacing: -0.03em; line-height: 1; margin-bottom: 12px;
+    }
+    .featured-sub {
+      font-size: 15px; color: var(--fg-dim); max-width: 560px; line-height: 1.7;
+    }
+
+    .projects-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: var(--fg-ghost);
+    }
+    @media(max-width: 900px) { .projects-grid { grid-template-columns: 1fr; } }
+
+    .project-card {
+      background: var(--bg); padding: clamp(28px,3.5vw,48px);
+      text-decoration: none; color: var(--fg); display: block;
+      position: relative; overflow: hidden;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 200ms;
+    }
+    .project-card.show { opacity: 1; transform: none; }
+    .project-card:hover { background: var(--card-hover, var(--fg-whisper)); }
+
+    .project-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--card-accent, var(--fg)); transform: scaleY(0);
+      transition: transform 400ms var(--ease-out-expo);
+      transform-origin: bottom;
+    }
+    .project-card:hover::before { transform: scaleY(1); }
+
+    .card-num {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+      color: var(--card-accent, var(--fg-dim)); margin-bottom: 24px;
+    }
+    .card-domain {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--card-accent, var(--fg-dim)); margin-bottom: 16px;
+    }
+    .card-title {
+      font-family: var(--sans); font-size: clamp(24px,3vw,36px); font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 16px;
+    }
+    .card-desc {
+      font-size: 14px; color: var(--fg-dim); line-height: 1.65; margin-bottom: 24px;
+    }
+    .card-proof {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 20px;
+      line-height: 1.8;
+    }
+    .card-arrow {
+      font-family: var(--sans); font-size: 20px; font-weight: 300;
+      color: var(--card-accent, var(--fg-dim));
+      opacity: 0; transform: translateX(-8px);
+      transition: opacity 300ms var(--ease-out-expo), transform 300ms var(--ease-out-expo);
+    }
+    .project-card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+
+    /* ======================== FUN BUILDS ======================== */
+    #builds {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+    }
+    .builds-header { margin-bottom: clamp(48px,6vh,80px); }
+    .builds-title {
+      font-family: var(--sans); font-size: clamp(28px,4vw,56px); font-weight: 700;
+      letter-spacing: -0.025em; line-height: 1.1; margin-bottom: 12px;
+    }
+    .builds-sub {
+      font-size: 15px; color: var(--fg-dim); max-width: 560px; line-height: 1.7;
+    }
+
+    .builds-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: var(--fg-ghost);
+    }
+    @media(max-width: 800px) { .builds-grid { grid-template-columns: 1fr; } }
+
+    .build-card {
+      background: var(--bg); padding: clamp(24px,3vw,40px);
+      text-decoration: none; color: var(--fg); display: block;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 200ms;
+    }
+    .build-card.show { opacity: 1; transform: none; }
+    .build-card:hover { background: var(--fg-whisper); }
+
+    .build-tag {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .build-tag-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--build-color, var(--fg-dim));
+    }
+    .build-name {
+      font-family: var(--sans); font-size: clamp(18px,2.2vw,24px); font-weight: 600;
+      letter-spacing: -0.01em; margin-bottom: 10px;
+    }
+    .build-desc {
+      font-size: 13px; color: var(--fg-dim); line-height: 1.65; margin-bottom: 16px;
+    }
+    .build-stack {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .build-pill {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--fg-dim); padding: 3px 8px;
+      border: 1px solid var(--fg-ghost);
+    }
+
+    /* ======================== FRAMEWORKS ======================== */
+    #frameworks {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px);
+      border-bottom: 1px solid var(--fg-ghost);
+      background: linear-gradient(180deg, transparent, rgba(13,11,8,0.02) 50%, transparent);
+    }
+    .frameworks-header { margin-bottom: clamp(48px,6vh,80px); }
+    .frameworks-title {
+      font-family: var(--sans); font-size: clamp(28px,4vw,56px); font-weight: 700;
+      letter-spacing: -0.025em; line-height: 1.1; margin-bottom: 12px;
+    }
+    .frameworks-sub {
+      font-size: 15px; color: var(--fg-dim); max-width: 600px; line-height: 1.7;
+    }
+
+    .fw-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: var(--fg-ghost);
+    }
+    @media(max-width: 900px) { .fw-grid { grid-template-columns: 1fr; } }
+
+    .fw-card {
+      background: var(--bg); padding: clamp(28px,3.5vw,48px);
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo), background 200ms;
+    }
+    .fw-card.show { opacity: 1; transform: none; }
+    .fw-card:hover { background: var(--fg-whisper); }
+
+    .fw-type {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 16px;
+    }
+    .fw-name {
+      font-family: var(--sans); font-size: clamp(18px,2vw,24px); font-weight: 600;
+      letter-spacing: -0.01em; margin-bottom: 16px;
+    }
+
+    /* SVG diagram styling */
+    .fw-diagram { margin-bottom: 20px; width: 100%; }
+    .fw-diagram svg { width: 100%; height: auto; }
+    .fw-diagram text {
+      font-family: 'Space Mono', monospace; fill: rgba(13,11,8,0.5);
+    }
+    .fw-diagram .layer-bar {
+      opacity: 0; transform: scaleX(0); transform-origin: left;
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
+    }
+    .fw-card.show .layer-bar { opacity: 1; transform: scaleX(1); }
+    .fw-diagram .flow-node {
+      opacity: 0; transform: translateX(-8px);
+      transition: opacity 400ms var(--ease-out-expo), transform 400ms var(--ease-out-expo);
+    }
+    .fw-card.show .flow-node { opacity: 1; transform: translateX(0); }
+    .fw-diagram .pass-block {
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 400ms var(--ease-out-expo), transform 400ms var(--ease-out-expo);
+    }
+    .fw-card.show .pass-block { opacity: 1; transform: translateY(0); }
+
+    .fw-desc {
+      font-size: 13px; color: var(--fg-dim); line-height: 1.65; margin-top: 16px;
+    }
+    .fw-desc strong { color: var(--fg); font-weight: 500; }
+
+    /* ======================== CODA ======================== */
+    #coda {
+      padding: clamp(80px,10vh,140px) clamp(32px,5vw,80px) clamp(64px,8vh,120px);
+      display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; align-items: end;
+    }
+    @media(max-width: 700px) { #coda { grid-template-columns: 1fr; } }
+
+    .coda-kicker {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-dim); margin-bottom: 24px;
+    }
+    .coda-name {
+      font-family: var(--sans); font-size: clamp(40px,7vw,112px); font-weight: 700;
+      letter-spacing: -0.04em; line-height: 0.92; margin-bottom: 24px;
+    }
+    .coda-bio {
+      font-size: 16px; color: var(--fg-dim); line-height: 1.65; max-width: 520px;
+    }
+    .coda-bio strong { color: var(--fg); font-weight: 500; }
+    .coda-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 40px; }
+    .action-link {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; text-decoration: none; padding: 12px 22px;
+      border: 1px solid var(--fg-ghost); color: var(--fg);
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: border-color 100ms, background 100ms;
+    }
+    .action-link:hover { border-color: var(--fg); background: rgba(13,11,8,0.04); }
+    .action-link.primary {
+      background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700;
+    }
+    .action-link.primary:hover { background: rgba(13,11,8,0.8); }
+
+    .coda-meta { text-align: right; }
+    .coda-meta-text {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+      color: rgba(13,11,8,0.18); line-height: 2.2;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="grid-lines"></div>
+
+  <div id="preloader">
+    <div class="pre-chars" id="preChars"></div>
+  </div>
+
+  <!-- ======================== HERO ======================== -->
+  <section id="hero">
+    <div class="hero-deco">
+      AI Builder<br>
+      GTM + Partnerships<br>
+      San Francisco<br>
+      2025 &ndash; 2026
+    </div>
+
+    <div>
+      <div class="hero-kicker" id="heroKicker">
+        <span class="kicker-dot"></span>
+        Portfolio
+      </div>
+
+      <h1 class="hero-h1">
+        <span class="line"><span class="line-inner" id="line1">Jenny</span></span>
+        <span class="line"><span class="line-inner" id="line2">Chen</span></span>
+        <span class="line"><span class="line-inner dim" id="line3">builds.</span></span>
+      </h1>
+
+      <p class="hero-byline" id="heroByline">
+        <em>GTM operator who builds the tools.</em> I find broken processes and build AI systems that replace them. Across networking, competitive intelligence, healthcare CRM, and wherever manual work is pretending to be strategy.
+      </p>
+    </div>
+
+    <div class="hero-footer" id="heroFooter">
+      <div class="hero-scroll">
+        <div class="scroll-bar"></div>
+        Scroll to explore
+      </div>
+      <div class="hero-stack">
+        <span class="chip">3 shipped products</span>
+        <span class="chip">3 AI frameworks</span>
+        <span class="chip">Built with Claude</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== TICKER ======================== -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span class="ticker-item">LinkedIn Automation</span>
+      <span class="ticker-item">Competitive Intelligence</span>
+      <span class="ticker-item">Healthcare CRM</span>
+      <span class="ticker-item">Agent Orchestration</span>
+      <span class="ticker-item">Anti-Scraping</span>
+      <span class="ticker-item">System Prompts</span>
+      <span class="ticker-item">Perceptual Marketing</span>
+      <span class="ticker-item">Community Products</span>
+      <span class="ticker-item">KOC Seeding Detection</span>
+      <span class="ticker-item">Multi-Agent Debate</span>
+      <span class="ticker-item">LinkedIn Automation</span>
+      <span class="ticker-item">Competitive Intelligence</span>
+      <span class="ticker-item">Healthcare CRM</span>
+      <span class="ticker-item">Agent Orchestration</span>
+      <span class="ticker-item">Anti-Scraping</span>
+      <span class="ticker-item">System Prompts</span>
+      <span class="ticker-item">Perceptual Marketing</span>
+      <span class="ticker-item">Community Products</span>
+      <span class="ticker-item">KOC Seeding Detection</span>
+      <span class="ticker-item">Multi-Agent Debate</span>
+    </div>
+  </div>
+
+  <!-- ======================== FEATURED CASE STUDIES ======================== -->
+  <section id="featured">
+    <div class="featured-header fade-up">
+      <div class="section-label">Case Studies</div>
+      <h2 class="featured-title">Shipped products.</h2>
+      <p class="featured-sub">Each one started with a process that was too manual, too slow, or too dumb to keep doing by hand. Click through for the full story.</p>
+    </div>
+
+    <div class="projects-grid">
+      <a href="ihn-portfolio/index.html" class="project-card" style="--card-accent: #ff4500; --card-hover: rgba(255,69,0,0.04)">
+        <div class="card-num">01</div>
+        <div class="card-domain">Networking Automation</div>
+        <h3 class="card-title">I Hate Networking</h3>
+        <p class="card-desc">Turns Luma event guest lists into LinkedIn connections. Launched via SXSW and Shoptalk campaigns for user acquisition. Real users, real complaints, constant platform adaptation as LinkedIn cracks down.</p>
+        <div class="card-proof">
+          300+ connections sent · 12+ events targeted<br>
+          Live on Chrome Web Store · Luma campaign GTM
+        </div>
+        <div class="card-arrow">&#8594;</div>
+      </a>
+
+      <a href="kklue-portfolio/index.html" class="project-card" style="--card-accent: #0d6b58; --card-hover: rgba(13,107,88,0.04)">
+        <div class="card-num">02</div>
+        <div class="card-domain">Competitive Intelligence</div>
+        <h3 class="card-title">KKlue + Seeding Ninja</h3>
+        <p class="card-desc">D2C competitive research framework that maps positioning, pricing, and growth engines. Spun off Seeding Ninja to detect repeated KOC seeding patterns across competitor campaigns. One framework, two tools.</p>
+        <div class="card-proof">
+          Multi-phase discovery pipeline<br>
+          Instagram + Meta Ads + Reddit sources
+        </div>
+        <div class="card-arrow">&#8594;</div>
+      </a>
+
+      <a href="puzzle-portfolio/index.html" class="project-card" style="--card-accent: #2a00ff; --card-hover: rgba(42,0,255,0.04)">
+        <div class="card-num">03</div>
+        <div class="card-domain">Healthcare CRM</div>
+        <h3 class="card-title">Puzzle CRM</h3>
+        <p class="card-desc">AI powered referral discovery for an acupuncture practice. Multi-channel outreach across Instagram, Gmail, and events with Pardot integration. The most complete build: live campaign, real results, full operations.</p>
+        <div class="card-proof">
+          Live campaign in production<br>
+          Multi-channel orchestration · Pardot
+        </div>
+        <div class="card-arrow">&#8594;</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ======================== FUN BUILDS ======================== -->
+  <section id="builds">
+    <div class="builds-header fade-up">
+      <div class="section-label">Experiments</div>
+      <h2 class="builds-title">Side builds.</h2>
+      <p class="builds-sub">Projects built because the problem was interesting. Less polished, more fun.</p>
+    </div>
+
+    <div class="builds-grid">
+      <a href="builds/index.html" class="build-card" style="--build-color: #7b5fff">
+        <div class="build-tag"><span class="build-tag-dot"></span> Agent Orchestration</div>
+        <h3 class="build-name">MAX</h3>
+        <p class="build-desc">4 specialist agents debate financial scenarios in 3 structured rounds. Built to explore peer-to-peer orchestration patterns where agents challenge each other's reasoning, not just answer prompts.</p>
+        <div class="build-stack">
+          <span class="build-pill">Bun</span>
+          <span class="build-pill">Claude CLI</span>
+          <span class="build-pill">Multi-agent</span>
+          <span class="build-pill">File-based state</span>
+        </div>
+      </a>
+
+      <a href="builds/index.html#xhs" class="build-card" style="--build-color: #c4402a">
+        <div class="build-tag"><span class="build-tag-dot"></span> Anti-Scraping Automation</div>
+        <h3 class="build-name">XHS Outreach Bridge</h3>
+        <p class="build-desc">Connecting Qian Gua analytics with Xiaohongshu outreach on one of the most hostile anti-scraping platforms. Human-speed typing simulation, behavioral pattern matching, cross-platform data bridging.</p>
+        <div class="build-stack">
+          <span class="build-pill">CDP</span>
+          <span class="build-pill">mitmproxy</span>
+          <span class="build-pill">Xiaohongshu</span>
+          <span class="build-pill">Anti-bot evasion</span>
+        </div>
+      </a>
+
+      <a href="builds/index.html#rdr" class="build-card" style="--build-color: #b89059">
+        <div class="build-tag"><span class="build-tag-dot"></span> Community Product</div>
+        <h3 class="build-name">Rolling Damage Report</h3>
+        <p class="build-desc">Body journal &rarr; BJJ journal &rarr; open mat finder. Three pivots based on community signal. Reddit viral launch. 60+ organic submissions from across the US with zero ad spend.</p>
+        <div class="build-stack">
+          <span class="build-pill">Next.js</span>
+          <span class="build-pill">Convex</span>
+          <span class="build-pill">MapLibre</span>
+          <span class="build-pill">Reddit GTM</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ======================== FRAMEWORKS ======================== -->
+  <section id="frameworks">
+    <div class="frameworks-header fade-up">
+      <div class="section-label">How I Think</div>
+      <h2 class="frameworks-title">AI frameworks.</h2>
+      <p class="frameworks-sub">Not just building with AI. Building frameworks for how to build with AI. Each is a Claude Code skill used across all projects above.</p>
+    </div>
+
+    <div class="fw-grid">
+      <div class="fw-card">
+        <div class="fw-type">Cognitive Framework</div>
+        <div class="fw-name">Perceptual Marketing</div>
+        <div class="fw-diagram">
+          <svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+            <text x="0" y="12" font-size="7" letter-spacing="0.12em" fill="rgba(13,11,8,0.35)">COGNITIVE LAYER</text>
+            <text x="240" y="12" font-size="7" letter-spacing="0.12em" fill="rgba(13,11,8,0.35)">RESPONSE TIME</text>
+            <!-- Layer bars -->
+            <rect class="layer-bar" x="0" y="22" width="280" height="24" rx="2" fill="rgba(13,11,8,0.08)" style="transition-delay: 0ms"/>
+            <text x="8" y="38" font-size="8.5" font-weight="600" fill="rgba(13,11,8,0.7)">PHYSIOLOGICAL</text>
+            <text x="244" y="38" font-size="8" fill="rgba(13,11,8,0.35)">50ms</text>
+
+            <rect class="layer-bar" x="0" y="50" width="250" height="24" rx="2" fill="rgba(13,11,8,0.07)" style="transition-delay: 80ms"/>
+            <text x="8" y="66" font-size="8.5" font-weight="600" fill="rgba(13,11,8,0.7)">SOMATIC</text>
+            <text x="214" y="66" font-size="8" fill="rgba(13,11,8,0.35)">150ms</text>
+
+            <rect class="layer-bar" x="0" y="78" width="210" height="24" rx="2" fill="rgba(13,11,8,0.06)" style="transition-delay: 160ms"/>
+            <text x="8" y="94" font-size="8.5" font-weight="600" fill="rgba(13,11,8,0.7)">NARRATIVE</text>
+            <text x="174" y="94" font-size="8" fill="rgba(13,11,8,0.35)">500ms</text>
+
+            <rect class="layer-bar" x="0" y="106" width="170" height="24" rx="2" fill="rgba(13,11,8,0.05)" style="transition-delay: 240ms"/>
+            <text x="8" y="122" font-size="8.5" font-weight="600" fill="rgba(13,11,8,0.7)">LINGUISTIC</text>
+            <text x="134" y="122" font-size="8" fill="rgba(13,11,8,0.35)">active</text>
+
+            <rect class="layer-bar" x="0" y="134" width="320" height="24" rx="2" fill="rgba(13,11,8,0.04)" style="transition-delay: 320ms"/>
+            <text x="8" y="150" font-size="8.5" font-weight="600" fill="rgba(13,11,8,0.7)">SYSTEMIC</text>
+            <text x="264" y="150" font-size="8" fill="rgba(13,11,8,0.35)">over time</text>
+
+            <!-- Annotation -->
+            <text x="0" y="174" font-size="7" fill="rgba(13,11,8,0.3)">&#9650; The body decides before the mind explains</text>
+          </svg>
+        </div>
+        <p class="fw-desc">Original framework built from neuroscience. Every interface is a prediction error decision. <strong>5 cognitive layers, 8 failure modes, 3 output formats.</strong></p>
+      </div>
+
+      <div class="fw-card">
+        <div class="fw-type">AI Methodology</div>
+        <div class="fw-name">System Prompt Engineering</div>
+        <div class="fw-diagram">
+          <svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+            <text x="0" y="12" font-size="7" letter-spacing="0.12em" fill="rgba(13,11,8,0.35)">PROMPT ARCHITECTURE</text>
+            <!-- Flow nodes -->
+            <g class="flow-node" style="transition-delay: 0ms">
+              <rect x="0" y="22" width="90" height="32" rx="2" fill="none" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <text x="45" y="42" font-size="8" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">ROLE</text>
+            </g>
+            <g class="flow-node" style="transition-delay: 60ms">
+              <line x1="94" y1="38" x2="112" y2="38" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <rect x="116" y="22" width="90" height="32" rx="2" fill="none" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <text x="161" y="42" font-size="8" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">TOOLS</text>
+            </g>
+            <g class="flow-node" style="transition-delay: 120ms">
+              <line x1="210" y1="38" x2="228" y2="38" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <rect x="232" y="22" width="88" height="32" rx="2" fill="none" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <text x="276" y="42" font-size="8" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">OUTPUT</text>
+            </g>
+            <g class="flow-node" style="transition-delay: 180ms">
+              <rect x="0" y="64" width="148" height="32" rx="2" fill="none" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <text x="74" y="84" font-size="8" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">REFUSALS + ESCALATION</text>
+            </g>
+            <g class="flow-node" style="transition-delay: 240ms">
+              <line x1="152" y1="80" x2="170" y2="80" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <rect x="174" y="64" width="146" height="32" rx="2" fill="none" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <text x="247" y="84" font-size="8" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">WHAT "DONE" LOOKS LIKE</text>
+            </g>
+            <!-- Rules -->
+            <g class="flow-node" style="transition-delay: 300ms">
+              <line x1="160" y1="100" x2="160" y2="114" stroke="rgba(13,11,8,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+              <rect x="40" y="118" width="240" height="50" rx="2" fill="rgba(13,11,8,0.03)"/>
+              <text x="160" y="138" font-size="7.5" text-anchor="middle" fill="rgba(13,11,8,0.5)">Persona + Behavioral Rules + Edge Cases</text>
+              <text x="160" y="152" font-size="7.5" text-anchor="middle" fill="rgba(13,11,8,0.5)">Memory Instructions + Tone + Length</text>
+            </g>
+            <text x="0" y="178" font-size="7" fill="rgba(13,11,8,0.3)">&#9650; Every sentence answers one of these five</text>
+          </svg>
+        </div>
+        <p class="fw-desc">Reverse-engineered from Claude's system prompts. <strong>14 sections, 12 common mistakes, 4 prompt types.</strong> Used to build every agent in this portfolio.</p>
+      </div>
+
+      <div class="fw-card">
+        <div class="fw-type">Content Pipeline</div>
+        <div class="fw-name">Article Reviewer</div>
+        <div class="fw-diagram">
+          <svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+            <text x="0" y="12" font-size="7" letter-spacing="0.12em" fill="rgba(13,11,8,0.35)">4-PASS EDITORIAL PIPELINE</text>
+            <!-- Pass blocks -->
+            <g class="pass-block" style="transition-delay: 0ms">
+              <rect x="0" y="24" width="70" height="60" rx="2" fill="rgba(13,11,8,0.06)"/>
+              <text x="35" y="42" font-size="18" text-anchor="middle" font-weight="700" fill="rgba(13,11,8,0.12)">01</text>
+              <text x="35" y="58" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">KILL</text>
+              <text x="35" y="68" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">AI FLUFF</text>
+            </g>
+            <g class="pass-block" style="transition-delay: 100ms">
+              <line x1="74" y1="54" x2="82" y2="54" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <polygon points="82,51 88,54 82,57" fill="rgba(13,11,8,0.15)"/>
+              <rect x="92" y="24" width="70" height="60" rx="2" fill="rgba(13,11,8,0.05)"/>
+              <text x="127" y="42" font-size="18" text-anchor="middle" font-weight="700" fill="rgba(13,11,8,0.10)">02</text>
+              <text x="127" y="58" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">VALIDATE</text>
+              <text x="127" y="68" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">EVIDENCE</text>
+            </g>
+            <g class="pass-block" style="transition-delay: 200ms">
+              <line x1="166" y1="54" x2="174" y2="54" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <polygon points="174,51 180,54 174,57" fill="rgba(13,11,8,0.15)"/>
+              <rect x="184" y="24" width="70" height="60" rx="2" fill="rgba(13,11,8,0.04)"/>
+              <text x="219" y="42" font-size="18" text-anchor="middle" font-weight="700" fill="rgba(13,11,8,0.08)">03</text>
+              <text x="219" y="58" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">FIX</text>
+              <text x="219" y="68" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">STRUCTURE</text>
+            </g>
+            <g class="pass-block" style="transition-delay: 300ms">
+              <line x1="258" y1="54" x2="266" y2="54" stroke="rgba(13,11,8,0.15)" stroke-width="1"/>
+              <polygon points="266,51 272,54 266,57" fill="rgba(13,11,8,0.15)"/>
+              <rect x="276" y="24" width="44" height="60" rx="2" fill="rgba(13,11,8,0.03)"/>
+              <text x="298" y="42" font-size="18" text-anchor="middle" font-weight="700" fill="rgba(13,11,8,0.06)">04</text>
+              <text x="298" y="58" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">MATCH</text>
+              <text x="298" y="68" font-size="7.5" text-anchor="middle" font-weight="600" fill="rgba(13,11,8,0.6)">VOICE</text>
+            </g>
+            <!-- Detection examples -->
+            <g class="pass-block" style="transition-delay: 400ms">
+              <text x="0" y="108" font-size="7" letter-spacing="0.1em" fill="rgba(13,11,8,0.3)">DETECTS</text>
+              <rect x="0" y="114" width="320" height="56" rx="2" fill="rgba(13,11,8,0.02)"/>
+              <text x="12" y="132" font-size="8" fill="rgba(13,11,8,0.4)">&#10005; "In this article, we will explore..."</text>
+              <text x="12" y="146" font-size="8" fill="rgba(13,11,8,0.4)">&#10005; Symmetric 3-item lists &middot; Hollow transitions</text>
+              <text x="12" y="160" font-size="8" fill="rgba(13,11,8,0.4)">&#10005; Hedging language &middot; Rhetorical question openers</text>
+            </g>
+          </svg>
+        </div>
+        <p class="fw-desc">Catches AI tells by structural pattern, not just phrases. <strong>Integrates brand voice matching</strong> for consistent output.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== CODA ======================== -->
+  <section id="coda">
+    <div>
+      <div class="coda-kicker">Let's talk</div>
+      <h2 class="coda-name fade-up">Jenny<br>Chen</h2>
+      <p class="coda-bio">
+        <strong>GTM operator turned builder.</strong> I find processes that are too manual, too slow, or too dumb, and I build the AI systems that replace them.
+        Targeting GTM + Partnerships roles at Series A&ndash;B AI companies.
+      </p>
+      <div class="coda-actions">
+        <a href="https://linkedin.com/in/tjennychen" class="action-link primary" target="_blank">&#8594; LinkedIn</a>
+        <a href="mailto:tjennychen@gmail.com" class="action-link">Get in touch</a>
+        <a href="https://github.com/tjennychen" class="action-link" target="_blank">GitHub</a>
+      </div>
+    </div>
+    <div class="coda-meta">
+      <div class="coda-meta-text">
+        Jenny Chen<br>
+        AI Builder Portfolio<br>
+        San Francisco<br>
+        2025 &ndash; 2026
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // CURSOR
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    });
+    function bindCursorExpand() {
+      document.querySelectorAll('a, button, .project-card, .build-card, .framework-item').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          cursor.classList.add('expanded');
+          const accent = getComputedStyle(el).getPropertyValue('--card-accent') ||
+                         getComputedStyle(el).getPropertyValue('--build-color');
+          if (accent && accent.trim()) cursor.style.background = accent.trim();
+        });
+        el.addEventListener('mouseleave', () => {
+          cursor.classList.remove('expanded');
+          cursor.style.background = '';
+        });
+      });
+    }
+
+    // PRELOADER
+    const preChars = document.getElementById('preChars');
+    const txt = 'jenny.builds()';
+    txt.split('').forEach((ch, i) => {
+      const s = document.createElement('span');
+      s.textContent = ch === ' ' ? '\u00A0' : ch;
+      s.style.animationDelay = (i * 45) + 'ms';
+      preChars.appendChild(s);
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('preloader').classList.add('done');
+        initHero();
+        bindCursorExpand();
+      }, txt.length * 45 + 280);
+    });
+
+    function initHero() {
+      document.getElementById('heroKicker').classList.add('show');
+      ['line1','line2','line3'].forEach((id, i) => {
+        setTimeout(() => document.getElementById(id).classList.add('show'), i * 90);
+      });
+      setTimeout(() => document.getElementById('heroByline').classList.add('show'), 300);
+      setTimeout(() => document.getElementById('heroFooter').classList.add('show'), 500);
+    }
+
+    // TICKER pause on hover
+    const tickerWrap = document.querySelector('.ticker-wrap');
+    const tickerTrack = document.querySelector('.ticker-track');
+    if (tickerWrap && tickerTrack) {
+      tickerWrap.addEventListener('mouseenter', () => tickerTrack.style.animationPlayState = 'paused');
+      tickerWrap.addEventListener('mouseleave', () => tickerTrack.style.animationPlayState = 'running');
+    }
+
+    // INTERSECTION OBSERVER
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+
+        if (el.classList.contains('project-card')) {
+          document.querySelectorAll('.project-card').forEach((c, i) => {
+            setTimeout(() => c.classList.add('show'), i * 120);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('build-card')) {
+          document.querySelectorAll('.build-card').forEach((c, i) => {
+            setTimeout(() => c.classList.add('show'), i * 100);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        if (el.classList.contains('fw-card')) {
+          document.querySelectorAll('.fw-card').forEach((f, i) => {
+            setTimeout(() => f.classList.add('show'), i * 150);
+          });
+          io.unobserve(el);
+          return;
+        }
+
+        el.classList.add('show');
+      });
+    }, { threshold: 0.12 });
+
+    // Observe elements
+    document.querySelector('.project-card') && io.observe(document.querySelector('.project-card'));
+    document.querySelector('.build-card') && io.observe(document.querySelector('.build-card'));
+    document.querySelector('.fw-card') && io.observe(document.querySelector('.fw-card'));
+    document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+    // PARALLAX hero deco
+    const heroDeco = document.querySelector('.hero-deco');
+    window.addEventListener('scroll', () => {
+      if (heroDeco) heroDeco.style.transform = `translateY(${window.scrollY * 0.1}px)`;
+    }, { passive: true });
+  </script>
+
+</body>
+</html>
