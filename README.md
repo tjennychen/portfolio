@@ -21,4 +21,4 @@ builds/               Standalone build demos
 
 ---
 
-Built by [Jenny Chen](https://linkedin.com/in/tjennychen)
+Built by [Jenny Chen](https://www.linkedin.com/in/tingyi-jenny-chen/)
